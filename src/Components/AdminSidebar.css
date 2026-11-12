@@ -1,0 +1,77 @@
+.admin-sidebar {
+  background: linear-gradient(180deg, rgba(34, 24, 17, 0.98), rgba(61, 45, 32, 0.94));
+  color: white;
+  padding: 1.8rem 1.1rem;
+  min-height: 100vh;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.admin-sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem 1.4rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.admin-brand-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #c7a66b, #f5dfb6);
+  color: var(--bg-earth);
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+.admin-sidebar-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  letter-spacing: 0.12em;
+}
+
+.admin-sidebar-header p {
+  margin: 0.18rem 0 0;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 1.2rem;
+}
+
+.admin-nav-link {
+  padding: 0.9rem 1rem;
+  border-radius: 14px;
+  color: rgba(255, 255, 255, 0.8);
+  text-decoration: none;
+  font-weight: 600;
+  transition: background 0.25s ease, transform 0.25s ease;
+}
+
+.admin-nav-link:hover,
+.admin-nav-link.active {
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateX(2px);
+}
+
+@media (max-width: 900px) {
+  .admin-sidebar {
+    min-height: auto;
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .admin-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}

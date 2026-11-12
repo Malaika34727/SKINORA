@@ -1,0 +1,15 @@
+.orders-table {
+  min-width: 860px;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  border-radius: 999px;
+  padding: 0 0.75rem;
+  background: rgba(121, 177, 120, 0.12);
+  color: #295d35;
+  font-weight: 600;
+}

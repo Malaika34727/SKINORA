@@ -1,0 +1,41 @@
+.custom-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: none;
+  border-radius: 999px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.custom-button:hover {
+  transform: translateY(-2px);
+}
+
+.custom-button.primary {
+  background: linear-gradient(135deg, var(--accent-gold) 0%, #d8b578 100%);
+  color: var(--bg-earth);
+  box-shadow: 0 18px 30px rgba(168, 128, 72, 0.22);
+  padding: 0.92rem 1.7rem;
+}
+
+.custom-button.secondary {
+  background: transparent;
+  border: 1px solid rgba(123, 98, 20, 0.22);
+  color: var(--text-primary);
+  padding: 0.92rem 1.7rem;
+}
+
+.custom-button.dark {
+  background: var(--bg-earth);
+  color: white;
+  padding: 0.9rem 1.7rem;
+}
+
+.custom-button.small {
+  padding: 0.7rem 1.1rem;
+  font-size: 0.92rem;
+}

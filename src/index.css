@@ -1,0 +1,106 @@
+:root {
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #221b1a;
+  background: #f8f4ef;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  --bg-earth: #1f1714;
+  --bg-soft: #f8f4ef;
+  --surface: rgba(255, 255, 255, 0.72);
+  --surface-strong: #fffdf9;
+  --accent-gold: #b88d4a;
+  --accent-gold-soft: #d7b57a;
+  --accent-ink: #2c221d;
+  --text-primary: #201917;
+  --text-soft: #675d55;
+  --border-soft: rgba(89, 72, 60, 0.14);
+  --font-display: 'Georgia', 'Times New Roman', serif;
+  --shadow-soft: 0 24px 60px rgba(58, 41, 31, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top, rgba(184, 141, 74, 0.08), transparent 35%),
+    var(--bg-soft);
+  color: var(--text-primary);
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+a {
+  color: inherit;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  border: 0;
+  background: none;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.container {
+  width: min(1200px, calc(100% - 2rem));
+  margin: 0 auto;
+}
+
+.page-shell {
+  min-height: 100vh;
+}
+
+.page-content {
+  min-height: 60vh;
+}
+
+.section {
+  padding: 3.5rem 0;
+}
+
+.muted-copy {
+  color: var(--text-soft);
+}
+
+.empty-cart-box,
+.empty-state,
+.admin-panel-content,
+.login-shell,
+.admin-login-shell,
+.cart-shell,
+.contact-shell,
+.about-page,
+.products-page {
+  background: transparent;
+}
+
+@media (max-width: 640px) {
+  .container {
+    width: min(100% - 1rem, 1200px);
+  }
+}
