@@ -1,5 +1,6 @@
 import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router-dom';
 import MagneticCursor from './Components/MagneticCursor';
+import IntroScreen from './Components/IntroScreen';
 import Navbar from './Components/Navbar';
 import Footer from './Components/Footer';
 import { StoreProvider } from './context/StoreContext';
@@ -20,11 +21,11 @@ import './App.css';
 
 const StorefrontLayout = () => (
   <div className="app-shell">
-    <MagneticCursor />
     <Navbar />
+    <IntroScreen />
     <main className="page-content">
       <Routes>
-        <Route path="/" element={<Home />} />
+        <Route path="/" element={<HomeRoute />} />
         <Route path="/products" element={<Products />} />
         <Route path="/product/:id" element={<ProductDetails />} />
         <Route path="/login" element={<Login />} />
@@ -36,6 +37,13 @@ const StorefrontLayout = () => (
     </main>
     <Footer />
   </div>
+);
+
+const HomeRoute = () => (
+  <>
+    <IntroScreen />
+    <Home />
+  </>
 );
 
 const AdminNotFound = () => (
@@ -53,6 +61,7 @@ function App() {
   return (
     <BrowserRouter>
       <StoreProvider>
+        <MagneticCursor />
         <Routes>
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin/dashboard" element={<Dashboard />} />

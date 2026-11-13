@@ -1,26 +1,26 @@
 :root {
-  font-family: 'Inter', 'Segoe UI', sans-serif;
-  line-height: 1.5;
+  font-family: 'Avenir Next', Avenir, 'Segoe UI', sans-serif;
+  line-height: 1.55;
   font-weight: 400;
-  color: #221b1a;
-  background: #f8f4ef;
+  color: #292824;
+  background: #f7f5f0;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  --bg-earth: #1f1714;
-  --bg-soft: #f8f4ef;
-  --surface: rgba(255, 255, 255, 0.72);
-  --surface-strong: #fffdf9;
-  --accent-gold: #b88d4a;
-  --accent-gold-soft: #d7b57a;
-  --accent-ink: #2c221d;
-  --text-primary: #201917;
-  --text-soft: #675d55;
-  --border-soft: rgba(89, 72, 60, 0.14);
-  --font-display: 'Georgia', 'Times New Roman', serif;
-  --shadow-soft: 0 24px 60px rgba(58, 41, 31, 0.08);
+  --bg-earth: #292824;
+  --bg-soft: #f7f5f0;
+  --surface: #fbfaf7;
+  --surface-strong: #fffefa;
+  --accent-gold: #a88b56;
+  --accent-gold-soft: #d3bf96;
+  --accent-ink: #292824;
+  --text-primary: #292824;
+  --text-soft: #77736a;
+  --border-soft: rgba(57, 53, 44, 0.13);
+  --font-display: 'Bodoni 72', Didot, 'Times New Roman', serif;
+  --shadow-soft: 0 22px 56px rgba(49, 44, 34, 0.08);
 }
 
 * {
@@ -35,9 +35,8 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background:
-    radial-gradient(circle at top, rgba(184, 141, 74, 0.08), transparent 35%),
-    var(--bg-soft);
+  overflow-x: hidden;
+  background: var(--bg-soft);
   color: var(--text-primary);
 }
 
@@ -62,25 +61,57 @@ button {
   background: none;
 }
 
+button,
+a,
+input,
+textarea,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-gold);
+  outline-offset: 3px;
+}
+
 #root {
   min-height: 100vh;
 }
 
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: var(--text-primary);
+  text-wrap: balance;
+}
+
+h1,
+h2 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.035em;
+  line-height: 1.08;
+}
+
 .container {
-  width: min(1200px, calc(100% - 2rem));
+  width: min(1240px, calc(100% - 3rem));
   margin: 0 auto;
 }
 
 .page-shell {
-  min-height: 100vh;
+  min-height: 70vh;
 }
 
 .page-content {
+  flex: 1;
   min-height: 60vh;
 }
 
 .section {
-  padding: 3.5rem 0;
+  padding: clamp(3.5rem, 7vw, 6rem) 0;
 }
 
 .muted-copy {
@@ -99,8 +130,221 @@ button {
   background: transparent;
 }
 
+.section-heading {
+  margin-bottom: 2rem;
+}
+
+.section-heading h2 {
+  font-size: clamp(2rem, 3.2vw, 3.1rem);
+  letter-spacing: -0.035em;
+}
+
+.eyebrow {
+  color: var(--accent-gold);
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+}
+
+.product-grid {
+  align-items: stretch;
+}
+
+.product-card {
+  height: 100%;
+  border-color: var(--border-soft);
+  border-radius: 5px;
+  background: var(--surface-strong);
+  box-shadow: 0 10px 28px rgba(47, 42, 33, 0.055);
+  perspective: 1000px;
+}
+
+.product-card:hover {
+  box-shadow: 0 24px 44px rgba(47, 42, 33, 0.12);
+}
+
+.product-card-image-wrap {
+  aspect-ratio: 1 / 1;
+  background: #f0ece4;
+}
+
+.product-card-image {
+  height: 100%;
+  object-fit: cover;
+}
+
+.product-card-body {
+  gap: 0.8rem;
+  padding: 1.2rem;
+}
+
+.product-meta-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.45rem;
+  min-height: 5.3rem;
+}
+
+.product-meta-row h3 {
+  min-height: 2.8rem;
+  font-size: 1.16rem;
+  line-height: 1.25;
+}
+
+.product-price {
+  margin-top: auto;
+  color: var(--text-primary);
+  font-size: 0.96rem;
+  white-space: nowrap;
+}
+
+.product-description {
+  display: -webkit-box;
+  min-height: 4.65em;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  font-size: 0.88rem;
+}
+
+.product-actions {
+  gap: 0.6rem;
+}
+
+.product-actions .custom-button {
+  white-space: nowrap;
+}
+
+.highlight-card,
+.testimonial-card,
+.value-card,
+.contact-form,
+.contact-info-list div,
+.login-panel,
+.admin-login-panel,
+.cart-items-panel,
+.cart-summary,
+.empty-cart-box,
+.admin-product-form,
+.admin-table-wrap,
+.stat-card,
+.activity-panel {
+  border-color: var(--border-soft);
+  border-radius: 5px;
+  background: var(--surface-strong);
+  box-shadow: 0 10px 30px rgba(47, 42, 33, 0.045);
+}
+
+.highlight-card,
+.value-card {
+  padding: 1.75rem;
+}
+
+.custom-button {
+  min-height: 48px;
+  border-radius: 3px;
+  transition: color 0.25s ease, background 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.custom-button.primary {
+  color: #fffefa;
+  background: var(--accent-ink);
+  box-shadow: 0 8px 18px rgba(41, 40, 36, 0.14);
+}
+
+.custom-button.primary:hover {
+  background: #4a463d;
+  box-shadow: 0 12px 24px rgba(41, 40, 36, 0.18);
+}
+
+.custom-button.secondary {
+  background: transparent;
+  border-color: rgba(41, 40, 36, 0.27);
+}
+
+.custom-button.secondary:hover {
+  background: rgba(168, 139, 86, 0.08);
+}
+
+.custom-button:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.product-card .product-actions .custom-button {
+  padding: 0.68rem 0.9rem;
+  font-size: 0.79rem;
+}
+
+.product-card .view-link {
+  font-size: 0.84rem;
+  white-space: nowrap;
+}
+
+.product-badge {
+  border-radius: 2px;
+  background: rgba(41, 40, 36, 0.86);
+}
+
+input,
+textarea,
+select {
+  color: var(--text-primary);
+}
+
+.newsletter-box {
+  border-radius: 5px;
+  border-color: var(--border-soft);
+  background: #efebe2;
+}
+
+.promo-banner {
+  border-radius: 5px;
+  background: #302f2a;
+}
+
+.admin-shell {
+  background: #f3f1ec;
+}
+
+.admin-sidebar {
+  background: #292824;
+}
+
+@media (max-width: 900px) {
+  .container {
+    width: min(100% - 2.5rem, 1240px);
+  }
+}
+
 @media (max-width: 640px) {
   .container {
-    width: min(100% - 1rem, 1200px);
+    width: min(100% - 2rem, 1240px);
+  }
+
+  .section {
+    padding: 3.25rem 0;
+  }
+
+  .product-card-body {
+    padding: 1rem;
+  }
+
+  .product-meta-row {
+    min-height: 4.8rem;
+  }
+
+  .product-card .product-actions {
+    flex-direction: row;
+    align-items: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

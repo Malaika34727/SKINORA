@@ -1,0 +1,115 @@
+.intro-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% 43%, rgba(211, 191, 150, 0.18), transparent 34%),
+    #292824;
+  color: #f7f5f0;
+  animation: intro-exit 2.45s ease 0s forwards;
+  pointer-events: none;
+}
+
+.intro-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: intro-arrive 1.05s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.intro-logo {
+  width: 76px;
+  height: 76px;
+  margin-bottom: 0.7rem;
+  object-fit: contain;
+  filter: drop-shadow(0 0 24px rgba(211, 191, 150, 0.24));
+}
+
+.intro-wordmark {
+  font-family: var(--font-display);
+  font-size: clamp(2.2rem, 6vw, 3.6rem);
+  letter-spacing: 0.22em;
+  text-indent: 0.22em;
+}
+
+.intro-rule {
+  width: 46px;
+  height: 1px;
+  margin: 1rem 0 0.85rem;
+  background: var(--accent-gold-soft);
+  animation: intro-rule 0.65s ease 0.45s both;
+}
+
+.intro-content p {
+  margin: 0;
+  color: rgba(247, 245, 240, 0.74);
+  font-size: 0.74rem;
+  letter-spacing: 0.24em;
+  text-indent: 0.24em;
+  text-transform: uppercase;
+}
+
+.intro-skip {
+  position: absolute;
+  right: max(1.5rem, calc((100vw - 1240px) / 2));
+  bottom: 1.5rem;
+  padding: 0.7rem 0;
+  color: rgba(247, 245, 240, 0.72);
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.intro-skip:hover {
+  color: #fffefa;
+}
+
+@keyframes intro-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes intro-rule {
+  from {
+    opacity: 0;
+    transform: scaleX(0.2);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes intro-exit {
+  0%,
+  78% {
+    opacity: 1;
+    visibility: visible;
+  }
+  100% {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-screen {
+    animation-duration: 0.01ms;
+  }
+
+  .intro-content,
+  .intro-rule {
+    animation-duration: 0.01ms;
+  }
+}
