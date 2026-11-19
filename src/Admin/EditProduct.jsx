@@ -3,35 +3,65 @@ import { useNavigate, useParams } from 'react-router-dom';
 import Button from '../Components/Button';
 import AdminNavbar from '../Components/AdminNavbar';
 import AdminSidebar from '../Components/AdminSidebar';
-import { useStore } from '../context/StoreContext';
+import { useStore } from '../context/StoreContextValue';
+import { validateProductImage } from '../services/storage';
 import './EditProduct.css';
 
 const EditProduct = () => {
   const { id } = useParams();
-  const { products, updateProduct } = useStore();
-  const navigate = useNavigate();
-  const [formData, setFormData] = useState({
-    name: '',
-    price: '',
-    description: '',
-    category: '',
-    stock: '',
-    image: '',
-  });
+  const { products, productsLoading } = useStore();
 
-  useEffect(() => {
-    const product = products.find((item) => item.id === id);
-    if (product) {
-      setFormData({
-        name: product.name,
-        price: product.price,
-        description: product.description,
-        category: product.category,
-        stock: product.stock,
-        image: product.image,
-      });
-    }
-  }, [id, products]);
+  if (productsLoading) {
+    return <main className="page-shell"><p className="container">Loading product…</p></main>;
+  }
+
+  const product = products.find((item) => item.id === id);
+  if (!product) {
+    return (
+      <div className="admin-shell">
+        <AdminSidebar />
+        <main className="admin-main-panel">
+          <AdminNavbar />
+          <div className="admin-panel-content"><h2>Product not found.</h2></div>
+        </main>
+      </div>
+    );
+  }
+
+  return <EditProductForm id={id} product={product} />;
+};
+
+const EditProductForm = ({ id, product }) => {
+  const { updateProduct, categories } = useStore();
+  const navigate = useNavigate();
+  const categoryOptions = [...new Set([
+    'Serum',
+    'Moisturizer',
+    'Cleanser',
+    'Mask',
+    'Toner',
+    'Sunscreen',
+    product.category,
+    ...categories.filter((category) => category.isActive !== false).map((category) => category.name),
+  ].filter(Boolean))];
+  const [formData, setFormData] = useState(() => ({
+    name: product.name,
+    price: product.price,
+    discountPrice: product.discountPrice ?? '',
+    brand: product.brand || '',
+    description: product.description,
+    category: product.category,
+    stock: product.stock,
+    status: product.status || 'active',
+  }));
+  const [imageFile, setImageFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
 
   const handleInputChange = (event) => {
     const { name, value } = event.target;
@@ -41,35 +71,58 @@ const EditProduct = () => {
   const handleFileChange = (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    setFormData((current) => ({ ...current, image: URL.createObjectURL(file) }));
+    try {
+      validateProductImage(file);
+      setError('');
+      setImageFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    } catch (validationError) {
+      event.target.value = '';
+      setError(validationError.message);
+    }
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    updateProduct(id, {
-      name: formData.name,
-      price: Number(formData.price),
-      description: formData.description,
-      category: formData.category,
-      stock: Number(formData.stock),
-      image: formData.image,
-    });
-    navigate('/admin/manage-products');
-  };
+    if (!formData.name.trim() || !formData.price || !formData.description.trim() || formData.stock === '') {
+      setError('Complete all product fields before saving.');
+      return;
+    }
+    if (!Number.isFinite(Number(formData.price)) || Number(formData.price) < 0
+      || !Number.isInteger(Number(formData.stock)) || Number(formData.stock) < 0) {
+      setError('Price and stock must be valid non-negative numbers.');
+      return;
+    }
+    if (formData.discountPrice !== ''
+      && (!Number.isFinite(Number(formData.discountPrice))
+        || Number(formData.discountPrice) < 0
+        || Number(formData.discountPrice) > Number(formData.price))) {
+      setError('Discount price must be between zero and the regular price.');
+      return;
+    }
 
-  if (!products.some((item) => item.id === id)) {
-    return (
-      <div className="admin-shell">
-        <AdminSidebar />
-        <main className="admin-main-panel">
-          <AdminNavbar />
-          <div className="admin-panel-content">
-            <h2>Product not found.</h2>
-          </div>
-        </main>
-      </div>
-    );
-  }
+    setSaving(true);
+    setError('');
+    try {
+      const result = await updateProduct(id, {
+        name: formData.name.trim(),
+        price: Number(formData.price),
+        discountPrice: formData.discountPrice === '' ? '' : Number(formData.discountPrice),
+        brand: formData.brand.trim(),
+        description: formData.description.trim(),
+        category: formData.category,
+        stock: Number(formData.stock),
+        status: formData.status,
+      }, imageFile);
+      navigate('/admin/manage-products', {
+        state: { success: result.cleanupWarning || 'Product updated successfully.' },
+      });
+    } catch (saveError) {
+      setError(saveError.message || 'The product could not be updated.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="admin-shell">
@@ -90,48 +143,62 @@ const EditProduct = () => {
             <div className="form-grid">
               <label>
                 <span>Product Name</span>
-                <input type="text" name="name" value={formData.name} onChange={handleInputChange} />
+                <input type="text" name="name" value={formData.name} onChange={handleInputChange} required maxLength="160" />
               </label>
 
               <label>
                 <span>Product Price</span>
-                <input type="number" name="price" value={formData.price} onChange={handleInputChange} />
+                <input type="number" min="0" step="1" name="price" value={formData.price} onChange={handleInputChange} required />
+              </label>
+
+              <label>
+                <span>Discount Price (optional)</span>
+                <input type="number" min="0" step="1" name="discountPrice" value={formData.discountPrice} onChange={handleInputChange} />
+              </label>
+
+              <label>
+                <span>Brand</span>
+                <input type="text" maxLength="120" name="brand" value={formData.brand} onChange={handleInputChange} />
               </label>
 
               <label>
                 <span>Category</span>
                 <select name="category" value={formData.category} onChange={handleInputChange}>
-                  <option value="Serum">Serum</option>
-                  <option value="Moisturizer">Moisturizer</option>
-                  <option value="Cleanser">Cleanser</option>
-                  <option value="Mask">Mask</option>
-                  <option value="Toner">Toner</option>
-                  <option value="Sunscreen">Sunscreen</option>
+                  {categoryOptions.map((category) => <option key={category} value={category}>{category}</option>)}
                 </select>
               </label>
 
               <label>
                 <span>Stock</span>
-                <input type="number" name="stock" value={formData.stock} onChange={handleInputChange} />
+                <input type="number" min="0" step="1" name="stock" value={formData.stock} onChange={handleInputChange} required />
+              </label>
+
+              <label>
+                <span>Product Status</span>
+                <select name="status" value={formData.status} onChange={handleInputChange}>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
               </label>
             </div>
 
             <label>
               <span>Description</span>
-              <textarea name="description" rows="5" value={formData.description} onChange={handleInputChange} />
+              <textarea name="description" rows="5" value={formData.description} onChange={handleInputChange} required />
             </label>
 
             <label>
               <span>Product Image</span>
-              <input type="file" accept="image/*" onChange={handleFileChange} />
+              <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFileChange} />
             </label>
 
             <div className="image-preview-box">
-              <img src={formData.image} alt="Product preview" />
+              <img src={previewUrl || product.imageUrl} alt="Product preview" />
             </div>
 
+            {error && <p role="alert">{error}</p>}
             <div className="admin-form-actions">
-              <Button type="submit" variant="primary">Update Product</Button>
+              <Button type="submit" variant="primary" disabled={saving}>{saving ? 'Saving…' : 'Update Product'}</Button>
             </div>
           </form>
         </div>

@@ -1,34 +1,56 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Button from '../Components/Button';
 import AdminNavbar from '../Components/AdminNavbar';
 import AdminSidebar from '../Components/AdminSidebar';
-import { useStore } from '../context/StoreContext';
+import { useStore } from '../context/StoreContextValue';
+import { validateProductImage } from '../services/storage';
 import './AddProduct.css';
 
 const emptyForm = {
   name: '',
   price: '',
+  discountPrice: '',
+  brand: '',
   category: 'Serum',
   description: '',
   stock: '',
-  image: '',
+  status: 'active',
 };
 
+const defaultCategories = ['Serum', 'Moisturizer', 'Cleanser', 'Mask', 'Toner', 'Sunscreen'];
+
 const AddProduct = () => {
-  const { addProduct } = useStore();
+  const { addProduct, categories } = useStore();
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const [formData, setFormData] = useState(emptyForm);
   const [previewUrl, setPreviewUrl] = useState('');
+  const [imageFile, setImageFile] = useState(null);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const categoryOptions = [...new Set([
+    ...defaultCategories,
+    ...categories.filter((category) => category.isActive !== false).map((category) => category.name),
+  ])];
+
+  useEffect(() => () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
 
   const handleImageChange = (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const objectUrl = URL.createObjectURL(file);
-    setPreviewUrl(objectUrl);
-    setFormData((current) => ({ ...current, image: objectUrl }));
+    try {
+      validateProductImage(file);
+      setError('');
+      setImageFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    } catch (validationError) {
+      event.target.value = '';
+      setError(validationError.message);
+    }
   };
 
   const handleInputChange = (event) => {
@@ -36,30 +58,50 @@ const AddProduct = () => {
     setFormData((current) => ({ ...current, [name]: value }));
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
-    if (!formData.name || !formData.price || !formData.description || !formData.stock || !formData.image) {
+    if (!formData.name.trim() || !formData.price || !formData.description.trim() || formData.stock === '') {
+      setError('Complete all product fields before saving.');
       return;
     }
 
-    const nextProduct = {
-      id: `P${Date.now().toString().slice(-5)}`,
-      name: formData.name,
-      price: Number(formData.price),
-      category: formData.category,
-      description: formData.description,
-      stock: Number(formData.stock),
-      image: formData.image,
-    };
-
-    addProduct(nextProduct);
-    setFormData(emptyForm);
-    setPreviewUrl('');
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+    if (!Number.isFinite(Number(formData.price)) || Number(formData.price) < 0
+      || !Number.isInteger(Number(formData.stock)) || Number(formData.stock) < 0) {
+      setError('Price and stock must be valid non-negative numbers.');
+      return;
     }
-    navigate('/admin/manage-products');
+    if (formData.discountPrice !== ''
+      && (!Number.isFinite(Number(formData.discountPrice))
+        || Number(formData.discountPrice) < 0
+        || Number(formData.discountPrice) > Number(formData.price))) {
+      setError('Discount price must be between zero and the regular price.');
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+    try {
+      await addProduct({
+        name: formData.name.trim(),
+        price: Number(formData.price),
+        ...(formData.discountPrice === '' ? {} : { discountPrice: Number(formData.discountPrice) }),
+        brand: formData.brand.trim(),
+        category: formData.category,
+        description: formData.description.trim(),
+        stock: Number(formData.stock),
+        status: formData.status,
+      }, imageFile);
+      setFormData(emptyForm);
+      setImageFile(null);
+      setPreviewUrl('');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      navigate('/admin/manage-products', { state: { success: 'Product saved successfully.' } });
+    } catch (saveError) {
+      setError(saveError.message || 'The product could not be saved.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -81,40 +123,53 @@ const AddProduct = () => {
             <div className="form-grid">
               <label>
                 <span>Product Name</span>
-                <input type="text" name="name" value={formData.name} onChange={handleInputChange} />
+                <input type="text" name="name" value={formData.name} onChange={handleInputChange} required maxLength="160" />
               </label>
 
               <label>
                 <span>Product Price</span>
-                <input type="number" name="price" value={formData.price} onChange={handleInputChange} />
+                <input type="number" name="price" min="0" step="1" value={formData.price} onChange={handleInputChange} required />
+              </label>
+
+              <label>
+                <span>Discount Price (optional)</span>
+                <input type="number" name="discountPrice" min="0" step="1" value={formData.discountPrice} onChange={handleInputChange} />
+              </label>
+
+              <label>
+                <span>Brand</span>
+                <input type="text" name="brand" maxLength="120" value={formData.brand} onChange={handleInputChange} />
               </label>
 
               <label>
                 <span>Product Category</span>
                 <select name="category" value={formData.category} onChange={handleInputChange}>
-                  <option value="Serum">Serum</option>
-                  <option value="Moisturizer">Moisturizer</option>
-                  <option value="Cleanser">Cleanser</option>
-                  <option value="Mask">Mask</option>
-                  <option value="Toner">Toner</option>
-                  <option value="Sunscreen">Sunscreen</option>
+                  {categoryOptions.map((category) => <option key={category} value={category}>{category}</option>)}
                 </select>
               </label>
 
               <label>
                 <span>Stock Quantity</span>
-                <input type="number" name="stock" value={formData.stock} onChange={handleInputChange} />
+                <input type="number" name="stock" min="0" step="1" value={formData.stock} onChange={handleInputChange} required />
+              </label>
+
+              <label>
+                <span>Product Status</span>
+                <select name="status" value={formData.status} onChange={handleInputChange}>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
               </label>
             </div>
 
             <label>
               <span>Product Description</span>
-              <textarea name="description" rows="5" value={formData.description} onChange={handleInputChange} />
+              <textarea name="description" rows="5" value={formData.description} onChange={handleInputChange} required />
             </label>
 
             <label>
               <span>Product Image Upload</span>
-              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageChange} />
+              <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleImageChange} required />
             </label>
 
             {previewUrl && (
@@ -123,8 +178,9 @@ const AddProduct = () => {
               </div>
             )}
 
+            {error && <p role="alert">{error}</p>}
             <div className="admin-form-actions">
-              <Button type="submit" variant="primary">Save Product</Button>
+              <Button type="submit" variant="primary" disabled={saving}>{saving ? 'Saving…' : 'Save Product'}</Button>
             </div>
           </form>
         </div>

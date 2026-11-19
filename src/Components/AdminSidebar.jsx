@@ -5,7 +5,12 @@ const navItems = [
   { label: 'Dashboard', to: '/admin/dashboard' },
   { label: 'Add Product', to: '/admin/add-product' },
   { label: 'Manage Products', to: '/admin/manage-products' },
+  { label: 'Categories', to: '/admin/categories' },
   { label: 'Orders', to: '/admin/orders' },
+  { label: 'Customers', to: '/admin/customers' },
+  { label: 'Messages', to: '/admin/messages' },
+  { label: 'Notifications', to: '/admin/notifications' },
+  { label: 'Settings', to: '/admin/settings' },
 ];
 
 const AdminSidebar = () => {

@@ -38,8 +38,13 @@ const Footer = () => (
         <h4>Customer care</h4>
         <Link to="/contact">Contact us</Link>
         <Link to="/cart">Your bag</Link>
-        <a href="https://wa.me/923001234567" target="_blank" rel="noreferrer">Order support</a>
       </nav>
+
+      <div className="footer-links footer-newsletter">
+        <h4>Newsletter</h4>
+        <p>Notes on rituals, ingredients, and the SKINORA edit.</p>
+        <Link to="/#newsletter" className="footer-contact-link">Join the glow loop <MoveUpRight size={14} /></Link>
+      </div>
 
       <div className="footer-links footer-contact">
         <h4>Get in touch</h4>

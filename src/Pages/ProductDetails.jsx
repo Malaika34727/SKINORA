@@ -2,21 +2,29 @@ import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import Button from '../Components/Button';
 import ProductCard from '../Components/ProductCard';
-import { useStore } from '../context/StoreContext';
+import { useStore } from '../context/StoreContextValue';
+import { getProductPrice } from '../services/products';
 import './ProductDetails.css';
 
 const ProductDetails = () => {
   const { id } = useParams();
-  const { products, addToCart } = useStore();
+  const { products, productsLoading, productsError, addToCart } = useStore();
   const [quantity, setQuantity] = useState(1);
 
-  const product = useMemo(() => products.find((item) => item.id === id), [id, products]);
+  const product = useMemo(
+    () => products.find((item) => item.id === id && item.status !== 'inactive'),
+    [id, products],
+  );
+
+  if (productsLoading) {
+    return <main className="page-shell"><p className="container">Loading product…</p></main>;
+  }
 
   if (!product) {
     return (
       <div className="page-shell empty-product-state">
         <div className="container">
-          <h2>Product not found.</h2>
+          <h2>{productsError || 'Product not found.'}</h2>
           <Link to="/products" className="back-link">Return to products</Link>
         </div>
       </div>
@@ -29,13 +37,16 @@ const ProductDetails = () => {
     <div className="page-shell product-details-page">
       <div className="container product-details-shell">
         <div className="product-visual-card">
-          <img src={product.image} alt={product.name} className="product-visual" />
+          <img src={product.imageUrl} alt={product.name} className="product-visual" />
         </div>
 
         <div className="product-info-card">
           <p className="eyebrow">{product.category}</p>
           <h1>{product.name}</h1>
-          <p className="product-price-detail">PKR {product.price}</p>
+          <p className="product-price-detail">
+            PKR {getProductPrice(product)}
+            {getProductPrice(product) < product.price && <del> PKR {product.price}</del>}
+          </p>
           <p className="product-description-detail">{product.description}</p>
 
           <div className="quantity-row">
@@ -43,12 +54,20 @@ const ProductDetails = () => {
             <div className="quantity-box">
               <button type="button" onClick={() => setQuantity((current) => Math.max(1, current - 1))}>-</button>
               <span id="quantity">{quantity}</span>
-              <button type="button" onClick={() => setQuantity((current) => current + 1)}>+</button>
+              <button
+                type="button"
+                onClick={() => setQuantity((current) => Math.min(current + 1, product.stock, 99))}
+                disabled={quantity >= product.stock}
+              >
+                +
+              </button>
             </div>
           </div>
 
           <div className="details-actions">
-            <Button onClick={() => addToCart(product, quantity)} variant="primary">Add to Cart</Button>
+            <Button onClick={() => addToCart(product, quantity)} variant="primary" disabled={product.stock <= 0}>
+              {product.stock <= 0 ? 'Out of stock' : 'Add to Cart'}
+            </Button>
             <Link to="/products">
               <Button variant="secondary">Continue Shopping</Button>
             </Link>

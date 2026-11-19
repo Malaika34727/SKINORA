@@ -185,6 +185,30 @@
   margin-top: 0.5rem;
 }
 
+.summary-actions label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.summary-actions input,
+.summary-actions textarea,
+.summary-actions select {
+  min-height: 46px;
+  border: 1px solid rgba(123, 98, 20, 0.16);
+  border-radius: 12px;
+  padding: 0.7rem 0.85rem;
+  font: inherit;
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--text-primary);
+}
+
+.summary-actions textarea {
+  resize: vertical;
+}
+
 .summary-actions a {
   text-decoration: none;
 }

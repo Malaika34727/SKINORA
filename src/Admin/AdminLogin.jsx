@@ -1,8 +1,11 @@
 
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 import Button from '../Components/Button';
 import { logoImage } from '../data/products';
+import { auth, db } from '../firebase';
 import './AdminLogin.css';
 import { Eye, EyeOff } from 'lucide-react';
 
@@ -10,13 +13,27 @@ const AdminLogin = () => {
   const [email, setEmail] = useState('admin@skinora.com');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    if (email && password) {
-      localStorage.setItem('skinora-admin-logged-in', 'true');
+    setError('');
+    setLoading(true);
+    try {
+      const credential = await signInWithEmailAndPassword(auth, email.trim(), password);
+      const adminRecord = await getDoc(doc(db, 'admins', credential.user.uid));
+      if (!adminRecord.exists()) {
+        await signOut(auth);
+        setError('This account is not authorized to access the admin panel.');
+        return;
+      }
       navigate('/admin/dashboard');
+    } catch (loginError) {
+      setError(loginError.message || 'Admin sign-in failed.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -63,8 +80,9 @@ const AdminLogin = () => {
               </div>
             </label>
 
-            <Button type="submit" variant="primary" className="full-width">
-              Login
+            {error && <p role="alert">{error}</p>}
+            <Button type="submit" variant="primary" className="full-width" disabled={loading}>
+              {loading ? 'Signing in…' : 'Login'}
             </Button>
           </form>
 

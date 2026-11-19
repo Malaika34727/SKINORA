@@ -200,6 +200,15 @@
     border-bottom: 1px solid var(--border-soft);
   }
 
+  .mobile-nav button.mobile-nav-link {
+    width: 100%;
+    background: transparent;
+    color: var(--text-soft);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
   .mobile-nav .nav-link {
     width: fit-content;
   }

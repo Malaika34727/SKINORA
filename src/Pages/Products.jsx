@@ -1,23 +1,30 @@
 import { useMemo, useState } from 'react';
 import ProductCard from '../Components/ProductCard';
-import { useStore } from '../context/StoreContext';
+import { useStore } from '../context/StoreContextValue';
 import './Products.css';
 
 const Products = () => {
-  const { products } = useStore();
+  const { products, productsLoading, productsError, categories: storedCategories } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [sortBy, setSortBy] = useState('featured');
 
-  const categories = ['All', ...new Set(products.map((product) => product.category))];
+  const categories = [
+    'All',
+    ...new Set([
+      ...storedCategories.filter((category) => category.isActive !== false).map((category) => category.name),
+      ...products.filter((product) => product.status !== 'inactive').map((product) => product.category),
+    ]),
+  ];
 
   const filteredProducts = useMemo(() => {
     const normalizedSearch = searchTerm.toLowerCase().trim();
 
     const filtered = products.filter((product) => {
+      if (product.status === 'inactive') return false;
       const matchesSearch =
-        product.name.toLowerCase().includes(normalizedSearch) ||
-        product.description.toLowerCase().includes(normalizedSearch);
+        String(product.name || '').toLowerCase().includes(normalizedSearch) ||
+        String(product.description || '').toLowerCase().includes(normalizedSearch);
       const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
       return matchesSearch && matchesCategory;
     });
@@ -86,7 +93,20 @@ const Products = () => {
 
       <section className="section">
         <div className="container">
-          {filteredProducts.length > 0 ? (
+          {productsLoading ? (
+            <div className="product-grid product-grid-4 skeleton-grid" role="status" aria-label="Loading products">
+              {Array.from({ length: 4 }, (_, index) => (
+                <div className="product-skeleton" aria-hidden="true" key={index}>
+                  <span className="skeleton-image" />
+                  <span className="skeleton-line" />
+                  <span className="skeleton-line short" />
+                  <span className="skeleton-button" />
+                </div>
+              ))}
+            </div>
+          ) : productsError ? (
+            <div className="empty-state" role="alert"><p>{productsError}</p></div>
+          ) : filteredProducts.length > 0 ? (
             <div className="product-grid product-grid-4">
               {filteredProducts.map((product) => (
                 <ProductCard key={product.id} product={product} />
@@ -94,8 +114,8 @@ const Products = () => {
             </div>
           ) : (
             <div className="empty-state">
-              <h3>No products match your search.</h3>
-              <p>Try a different keyword or reset the category filters.</p>
+              <h3>{products.length ? 'No products match your search.' : 'Our collection is coming soon.'}</h3>
+              <p>{products.length ? 'Try a different keyword or reset the category filters.' : 'Please check back soon.'}</p>
             </div>
           )}
         </div>

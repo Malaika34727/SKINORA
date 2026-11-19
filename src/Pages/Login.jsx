@@ -1,49 +1,359 @@
-import { Link } from 'react-router-dom';
+
+import { useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+
 import Button from '../Components/Button';
 import { logoImage } from '../data/products';
+import { auth } from '../firebase';
+
+import {
+  createCustomerAccount,
+  resetCustomerPassword,
+  signInCustomer,
+  signOutCustomer,
+} from '../services/authService';
+
+import {
+  assertAppCheckConfigured,
+  ensureCustomerProfile,
+} from '../services/orders';
+
 import './Login.css';
 
-const Login = () => {
+const Login = ({ initialMode = 'login' }) => {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Automatically determine form from the current URL
+  const mode =
+    location.pathname === '/signup' || initialMode === 'register'
+      ? 'register'
+      : 'login';
+
+  const goToHome = () => {
+    navigate('/home', { replace: true });
+  };
+
+  // EMAIL LOGIN
+  const handleEmailLogin = async (event) => {
+    event.preventDefault();
+
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      await signInCustomer(email, password);
+      goToHome();
+    } catch (loginError) {
+      setError(loginError.message || 'Sign-in failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // CREATE ACCOUNT
+  const handleRegister = async (event) => {
+    event.preventDefault();
+
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      if (password !== confirmPassword) {
+        throw new Error('Passwords do not match.');
+      }
+
+      await createCustomerAccount({
+        name,
+        email,
+        password,
+      });
+
+      setName('');
+      setEmail('');
+      setPassword('');
+      setConfirmPassword('');
+
+      goToHome();
+    } catch (registerError) {
+      setError(registerError.message || 'Account creation failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // PASSWORD RESET
+  const handlePasswordReset = async () => {
+    if (!email.trim()) {
+      setError('Enter your email address before requesting a reset link.');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      await resetCustomerPassword(email);
+      setSuccess('Password reset instructions were sent to your email.');
+    } catch (resetError) {
+      setError(resetError.message || 'Password reset failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // GOOGLE LOGIN
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    let signedInUser = null;
+
+    try {
+      assertAppCheckConfigured();
+
+      const credential = await signInWithPopup(
+        auth,
+        new GoogleAuthProvider()
+      );
+
+      signedInUser = credential.user;
+
+      await ensureCustomerProfile({
+        name: signedInUser.displayName || 'Customer',
+        email: signedInUser.email || '',
+        phone: signedInUser.phoneNumber || '',
+      });
+
+      goToHome();
+    } catch (loginError) {
+      if (
+        signedInUser &&
+        auth.currentUser?.uid === signedInUser.uid
+      ) {
+        try {
+          await signOutCustomer();
+        } catch (signOutError) {
+          setError(
+            `${loginError.message} The account could not be signed out: ${signOutError.message}`
+          );
+          return;
+        }
+      }
+
+      setError(loginError.message || 'Google sign-in failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const heading =
+    mode === 'login'
+      ? 'Sign in to SKINORA'
+      : 'Create your SKINORA account';
+
   return (
     <div className="page-shell login-page">
       <div className="container login-shell">
         <div className="login-panel">
+
           <div className="login-brand">
-            <img src={logoImage} alt="SKINORA logo" className="login-logo" />
+            <img
+              src={logoImage}
+              alt="SKINORA logo"
+              className="login-logo"
+            />
+
             <div>
-              <p className="eyebrow">Welcome back</p>
-              <h1>Sign in to SKINORA</h1>
+              <p className="eyebrow">
+                {mode === 'login' ? 'Welcome back' : 'New customer'}
+              </p>
+
+              <h1>{heading}</h1>
             </div>
           </div>
 
           <div className="login-badge-row">
-            <span className="login-email-pill">safina@gmail.com</span>
+            <span className="login-email-pill">
+              {mode === 'login'
+                ? 'Sign in to your account'
+                : 'Create a secure customer account'}
+            </span>
           </div>
 
-          <button type="button" className="google-login-button">
+          <button
+            type="button"
+            className="google-login-button"
+            onClick={handleGoogleLogin}
+            disabled={loading}
+          >
             <span className="google-mark">G</span>
             Continue with Google
           </button>
 
-          <div className="divider"><span>or</span></div>
+          <div className="divider">
+            <span>or</span>
+          </div>
 
-          <form className="login-form">
-            <label>
-              <span>Email address</span>
-              <input type="email" value="safina@gmail.com" readOnly />
-            </label>
+          {mode === 'login' ? (
+            <form
+              className="login-form"
+              onSubmit={handleEmailLogin}
+            >
+              <label>
+                <span>Email address</span>
 
-            <label>
-              <span>Password</span>
-              <input type="password" placeholder="Enter your password" />
-            </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  autoComplete="email"
+                  required
+                />
+              </label>
 
-            <Button type="submit" variant="primary" className="full-width">Login</Button>
-          </form>
+              <label>
+                <span>Password</span>
+
+                <input
+                  type="password"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  autoComplete="current-password"
+                  required
+                />
+              </label>
+
+              {error && <p role="alert">{error}</p>}
+              {success && <p role="status">{success}</p>}
+
+              <Button
+                type="submit"
+                variant="primary"
+                className="full-width"
+                disabled={loading}
+              >
+                {loading ? 'Signing in…' : 'Login'}
+              </Button>
+
+              <Button
+                type="button"
+                variant="secondary"
+                className="full-width"
+                onClick={handlePasswordReset}
+                disabled={loading}
+              >
+                Reset password
+              </Button>
+            </form>
+          ) : (
+            <form
+              className="login-form"
+              onSubmit={handleRegister}
+            >
+              <label>
+                <span>Full name</span>
+
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  autoComplete="name"
+                  required
+                  minLength="2"
+                  maxLength="120"
+                />
+              </label>
+
+              <label>
+                <span>Email address</span>
+
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  autoComplete="email"
+                  required
+                />
+              </label>
+
+              <label>
+                <span>Password</span>
+
+                <input
+                  type="password"
+                  placeholder="Create a password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  autoComplete="new-password"
+                  required
+                  minLength="6"
+                />
+              </label>
+
+              <label>
+                <span>Confirm password</span>
+
+                <input
+                  type="password"
+                  placeholder="Confirm your password"
+                  value={confirmPassword}
+                  onChange={(event) =>
+                    setConfirmPassword(event.target.value)
+                  }
+                  autoComplete="new-password"
+                  required
+                  minLength="6"
+                />
+              </label>
+
+              {error && <p role="alert">{error}</p>}
+              {success && <p role="status">{success}</p>}
+
+              <Button
+                type="submit"
+                variant="primary"
+                className="full-width"
+                disabled={loading}
+              >
+                {loading ? 'Creating account…' : 'Create account'}
+              </Button>
+            </form>
+          )}
 
           <p className="login-footer-text">
-            Don’t have an account? <Link to="/products">Continue as guest</Link>
+            {mode === 'login' ? (
+              <>
+                New to SKINORA?{' '}
+                <Link to="/signup">
+                  Create an account
+                </Link>
+              </>
+            ) : (
+              <>
+                Already have an account?{' '}
+                <Link to="/login">
+                  Sign in
+                </Link>
+              </>
+            )}
           </p>
+
         </div>
       </div>
     </div>

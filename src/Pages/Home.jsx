@@ -3,14 +3,14 @@ import Button from '../Components/Button';
 import CategoryCard from '../Components/CategoryCard';
 import ProductCard from '../Components/ProductCard';
 import ScrollReveal from '../Components/ScrollReveal';
-import { useStore } from '../context/StoreContext';
-import { beautyImage, categories, heroImage, testimonials } from '../data/products';
+import { useStore } from '../context/StoreContextValue';
+import { beautyImage, categories as fallbackCategories, heroImage, testimonials, textureImage } from '../data/products';
 import './Home.css';
 
 const highlights = [
-  { title: 'Clinically curated', text: 'Luxury ingredients chosen for visible skin confidence.' },
-  { title: 'Dermatologist trusted', text: 'Gentle rituals designed to support healthy, hydrated skin.' },
-  { title: 'Real glow results', text: 'A premium system created to brighten and restore.' },
+  { title: 'Thoughtful essentials', text: 'A considered edit for the everyday skincare routine.' },
+  { title: 'Comfort-first rituals', text: 'Textures and steps designed to make daily care feel special.' },
+  { title: 'Your routine, your way', text: 'Explore a simple collection and find what fits your skin.' },
 ];
 
 const benefits = [
@@ -21,8 +21,16 @@ const benefits = [
 ];
 
 const Home = () => {
-  const { products } = useStore();
-  const featuredProducts = products.slice(0, 4);
+  const { products, productsLoading, productsError, categories: storedCategories, categoriesError } = useStore();
+  const featuredProducts = products.filter((product) => product.status !== 'inactive').slice(0, 4);
+  const visibleCategories = storedCategories.length
+    ? storedCategories
+      .filter((category) => category.isActive !== false)
+      .map((category) => ({
+        ...category,
+        img: fallbackCategories.find((item) => item.name === category.name)?.img || textureImage,
+      }))
+    : fallbackCategories;
 
   return (
     <div className="page-shell">
@@ -44,16 +52,16 @@ const Home = () => {
             </div>
             <div className="hero-metrics">
               <div>
-                <strong>25k+</strong>
-                <span>Happy clients</span>
+                <strong>01</strong>
+                <span>Cleanse</span>
               </div>
               <div>
-                <strong>4.9/5</strong>
-                <span>Average rating</span>
+                <strong>02</strong>
+                <span>Nourish</span>
               </div>
               <div>
-                <strong>100%</strong>
-                <span>Glow-first formulas</span>
+                <strong>03</strong>
+                <span>Protect</span>
               </div>
             </div>
           </ScrollReveal>
@@ -92,11 +100,22 @@ const Home = () => {
             <Link to="/products" className="inline-link">Explore all</Link>
           </div>
 
-          <div className="product-grid four-grid">
-            {featuredProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
+          {productsLoading ? (
+            <p className="muted-copy" role="status">Loading the collection…</p>
+          ) : productsError ? (
+            <p className="muted-copy" role="alert">{productsError}</p>
+          ) : featuredProducts.length > 0 ? (
+            <div className="product-grid four-grid">
+              {featuredProducts.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          ) : (
+            <div className="featured-empty">
+              <p>Our collection is being prepared. Explore the SKINORA rituals in the meantime.</p>
+              <Link to="/products" className="inline-link">Explore the collection</Link>
+            </div>
+          )}
         </div>
       </section>
 
@@ -110,12 +129,13 @@ const Home = () => {
           </div>
 
           <div className="category-grid">
-            {categories.map((category, index) => (
-              <ScrollReveal key={category.name} delay={index * 80}>
+            {visibleCategories.map((category, index) => (
+              <ScrollReveal key={category.id || category.name} delay={index * 80}>
                 <CategoryCard category={category} />
               </ScrollReveal>
             ))}
           </div>
+          {categoriesError && <p role="alert">{categoriesError}</p>}
         </div>
       </section>
 
@@ -145,11 +165,11 @@ const Home = () => {
       <section className="promo-banner-wrap">
         <div className="container promo-banner">
           <div className="promo-copy">
-            <p className="eyebrow light">Limited glow ritual</p>
-            <h2>Bundle your essentials and save up to 20%.</h2>
+            <p className="eyebrow light">The SKINORA edit</p>
+            <h2>Small rituals. A little more room to glow.</h2>
           </div>
           <Link to="/products">
-            <Button variant="primary">Shop Bundles</Button>
+            <Button variant="primary">Explore the collection</Button>
           </Link>
         </div>
       </section>
@@ -173,7 +193,7 @@ const Home = () => {
         </div>
       </section>
 
-      <section className="newsletter-section">
+      <section id="newsletter" className="newsletter-section">
         <div className="container newsletter-box">
           <div>
             <p className="eyebrow">Stay in the glow loop</p>

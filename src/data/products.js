@@ -94,33 +94,3 @@ export const testimonials = [
     text: 'The best skincare brand I have tried for hydration and hydration layering. My skin feels soft and healthy.',
   },
 ];
-
-export const sampleOrders = [
-  {
-    id: 'ORD-101',
-    customerName: 'Aisha Malik',
-    email: 'aisha@example.com',
-    products: 'Vitamin C Serum x 2',
-    total: 2400,
-    status: 'Processing',
-    date: '2026-11-04',
-  },
-  {
-    id: 'ORD-102',
-    customerName: 'Nadia Khan',
-    email: 'nadia@example.com',
-    products: 'Hydrating Moisturizer x 1',
-    total: 1350,
-    status: 'Shipped',
-    date: '2026-11-06',
-  },
-  {
-    id: 'ORD-103',
-    customerName: 'Maya Rahman',
-    email: 'maya@example.com',
-    products: 'Sun Shield Cream x 1, Gentle Face Wash x 2',
-    total: 3320,
-    status: 'Delivered',
-    date: '2026-11-09',
-  },
-];

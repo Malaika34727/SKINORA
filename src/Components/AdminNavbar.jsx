@@ -1,10 +1,20 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { signOut } from 'firebase/auth';
+import { auth } from '../firebase';
 import './AdminNavbar.css';
 
 const AdminNavbar = () => {
-  const handleLogout = () => {
-    localStorage.removeItem('skinora-admin-logged-in');
-    window.location.href = '/admin/login';
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate('/admin/login', { replace: true });
+    } catch (logoutError) {
+      setError(logoutError.message || 'Could not sign out.');
+    }
   };
 
   return (
@@ -20,6 +30,7 @@ const AdminNavbar = () => {
           <button type="button" className="admin-link-button danger" onClick={handleLogout}>Logout</button>
         </div>
       </div>
+      {error && <p role="alert">{error}</p>}
     </header>
   );
 };
