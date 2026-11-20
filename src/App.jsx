@@ -54,17 +54,15 @@ const StorefrontLayout = () => (
 
     <main id="main-content" className="page-content">
       <Routes>
-        {/* Website opens with Login */}
         <Route path="/" element={<Navigate to="/login" replace />} />
 
-        {/* Login and Create Account */}
         <Route path="/login" element={<Login />} />
+
         <Route
           path="/signup"
           element={<Login initialMode="register" />}
         />
 
-        {/* Protected customer pages */}
         <Route
           path="/home"
           element={
@@ -184,8 +182,8 @@ const AdminNotFound = () => (
       <p className="muted-copy">
         The admin URL you requested does not exist.
       </p>
-      <Link to="/admin/dashboard">
-        Return to dashboard
+      <Link to="/skinora-admin">
+        Return to admin login
       </Link>
     </div>
   </main>
@@ -202,12 +200,21 @@ function App() {
           <MagneticCursor />
 
           <Routes>
-            {/* ADMIN ROUTES */}
+            {/* SECRET ADMIN LOGIN URL */}
             <Route
-              path="/admin/login"
+              path="/skinora-admin"
               element={<AdminLogin />}
             />
 
+            {/* OLD ADMIN LOGIN URL REDIRECT */}
+            <Route
+              path="/admin/login"
+              element={
+                <Navigate to="/skinora-admin" replace />
+              }
+            />
+
+            {/* PROTECTED ADMIN DASHBOARD */}
             <Route
               path="/admin/dashboard"
               element={

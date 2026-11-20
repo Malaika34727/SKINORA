@@ -1,23 +1,69 @@
-import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContextValue';
+
+import { useEffect, useState } from 'react';
+import { Navigate, Outlet } from 'react-router-dom';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+
+import { auth, db } from '../firebase';
 
 const AdminRoute = ({ children }) => {
-  const { user, isAdmin, loading, error } = useAuth();
-  const location = useLocation();
+  const [status, setStatus] = useState('loading');
 
-  if (loading) {
-    return <main className="page-shell"><p className="container">Verifying admin access…</p></main>;
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        setStatus('unauthorized');
+        return;
+      }
+
+      try {
+        await user.reload();
+
+        if (!user.emailVerified) {
+          setStatus('unauthorized');
+          return;
+        }
+
+        const adminRef = doc(db, 'ADMIN', user.uid);
+        const adminSnapshot = await getDoc(adminRef);
+
+        if (!adminSnapshot.exists()) {
+          setStatus('unauthorized');
+          return;
+        }
+
+        const adminData = adminSnapshot.data();
+
+        const isAuthorized =
+          user.email?.toLowerCase() === 'dbestmalaika@gmail.com' &&
+          adminData.email?.toLowerCase() === 'dbestmalaika@gmail.com' &&
+          adminData.role === 'admin' &&
+          adminData.isActive === true;
+
+        setStatus(isAuthorized ? 'authorized' : 'unauthorized');
+
+      } catch (error) {
+        console.error('Admin verification failed:', error);
+        setStatus('unauthorized');
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  if (status === 'loading') {
+    return (
+      <div className="page-shell">
+        Verifying admin access...
+      </div>
+    );
   }
 
-  if (error) {
-    return <main className="page-shell"><p className="container" role="alert">{error}</p></main>;
+  if (status !== 'authorized') {
+    return <Navigate to="/skinora-admin" replace />;
   }
 
-  if (!user || !isAdmin) {
-    return <Navigate to="/admin/login" replace state={{ from: location.pathname }} />;
-  }
-
-  return children;
+  return children || <Outlet />;
 };
 
 export default AdminRoute;

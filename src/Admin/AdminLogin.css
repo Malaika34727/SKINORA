@@ -99,3 +99,51 @@
   color: #222;
 }
 
+.admin-auth-switch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-top: 1.3rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.admin-auth-switch button {
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.admin-auth-switch button:hover {
+  opacity: 0.7;
+}
+
+.admin-auth-error,
+.admin-auth-success {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.admin-auth-error {
+  color: #a52828;
+  background: #fff0f0;
+  border: 1px solid #f3cccc;
+}
+
+.admin-auth-success {
+  color: #236b42;
+  background: #effaf2;
+  border: 1px solid #c9e9d2;
+}
+
+
