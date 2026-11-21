@@ -3,8 +3,6 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import {
-  createUserWithEmailAndPassword,
-  sendEmailVerification,
   signInWithEmailAndPassword,
   signOut,
   reload,
@@ -14,178 +12,250 @@ import {
 import {
   doc,
   getDoc,
-  setDoc,
-  serverTimestamp,
 } from 'firebase/firestore';
 
 import Button from '../Components/Button';
 import { logoImage } from '../data/products';
 import { auth, db } from '../firebase';
+
 import './AdminLogin.css';
+
 import { Eye, EyeOff } from 'lucide-react';
 
 const ADMIN_EMAIL = 'dbestmalaika@gmail.com';
+const SUPER_ADMIN_UID = 'sDbSHVhgrmcPfLv0PJP2QDfLKFp1';
 
 const AdminLogin = () => {
-  const [email, setEmail] = useState('dbestmalaika@gmail.com');
+  const [loginType, setLoginType] = useState('admin');
+
+  const [email, setEmail] = useState(ADMIN_EMAIL);
   const [password, setPassword] = useState('');
+
   const [showPassword, setShowPassword] = useState(false);
+
   const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
 
-  // CREATE ADMIN ACCOUNT
-  const handleRegister = async () => {
-    const normalizedEmail = email.trim().toLowerCase();
+  // ==========================================
+  // LOGIN TYPE
+  // ==========================================
 
-    if (normalizedEmail !== ADMIN_EMAIL) {
-      setError('This email is not authorized for admin registration.');
-      return;
-    }
-
-    if (password.length < 6) {
-      setError('Password must contain at least 6 characters.');
-      return;
-    }
-
-    const credential = await createUserWithEmailAndPassword(
-      auth,
-      normalizedEmail,
-      password
-    );
-
-    await sendEmailVerification(credential.user);
-    await signOut(auth);
-
+  const handleLoginTypeChange = (type) => {
+    setLoginType(type);
+    setEmail(type === 'admin' ? ADMIN_EMAIL : '');
     setPassword('');
-
-    setMessage(
-      'Admin account created successfully. Please verify your email through the link sent to your Gmail, then log in.'
-    );
+    setError('');
+    setShowPassword(false);
   };
 
-  // ADMIN LOGIN
-  const handleLogin = async () => {
-    const normalizedEmail = email.trim().toLowerCase();
+  // ==========================================
+  // SUPER ADMIN LOGIN
+  // ==========================================
 
-    if (normalizedEmail !== ADMIN_EMAIL) {
-      setError('This email is not authorized for admin access.');
-      return;
+  const handleSuperAdminLogin = async (user) => {
+    if (
+      user.uid !== SUPER_ADMIN_UID ||
+      user.email?.trim().toLowerCase() !== ADMIN_EMAIL
+    ) {
+      throw new Error(
+        'This email is not authorized for Super Admin access.'
+      );
     }
 
-    const credential = await signInWithEmailAndPassword(
-      auth,
-      normalizedEmail,
-      password
+    const adminRef = doc(
+      db,
+      'ADMIN',
+      SUPER_ADMIN_UID
     );
 
-    const user = credential.user;
-
-    // Refresh email verification status
-    await reload(user);
-
-    if (!user.emailVerified) {
-      await signOut(auth);
-
-      setError(
-        'Please verify your admin email first. Check your Gmail inbox.'
-      );
-      return;
-    }
-
-    // Refresh Firebase ID token so Firestore receives updated claims
-    await getIdToken(user, true);
-
-    const adminRef = doc(db, 'ADMIN', user.uid);
     const adminSnapshot = await getDoc(adminRef);
 
     if (!adminSnapshot.exists()) {
-      // Create the first admin document
-      await setDoc(adminRef, {
-        uid: user.uid,
-        email: normalizedEmail,
-        role: 'admin',
-        isActive: true,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-    } else {
-      const adminData = adminSnapshot.data();
+      throw new Error(
+        'Super Admin record was not found.'
+      );
+    }
 
-      const authorized =
-        adminData.email?.toLowerCase() === ADMIN_EMAIL &&
-        adminData.role === 'admin' &&
-        adminData.isActive === true;
+    const adminData = adminSnapshot.data();
 
-      if (!authorized) {
-        await signOut(auth);
+    const authorized =
+      adminData.uid === SUPER_ADMIN_UID &&
+      adminData.email?.trim().toLowerCase() === ADMIN_EMAIL &&
+      adminData.role === 'admin' &&
+      adminData.isActive === true;
 
-        setError(
-          'This account is not authorized to access the admin panel.'
-        );
-        return;
-      }
+    if (!authorized) {
+      throw new Error(
+        'This account is not authorized to access the admin panel.'
+      );
     }
 
     navigate('/admin/dashboard', { replace: true });
   };
 
-  // FORM SUBMISSION
-  const handleSubmit = async (event, action) => {
+  // ==========================================
+  // SUB ADMIN LOGIN
+  // ==========================================
+
+  const handleSubAdminLogin = async (user) => {
+    const subAdminRef = doc(
+      db,
+      'ADMIN',
+      SUPER_ADMIN_UID,
+      'SUBADMIN',
+      user.uid
+    );
+
+    const subAdminSnapshot = await getDoc(subAdminRef);
+
+    if (!subAdminSnapshot.exists()) {
+      throw new Error(
+        'No Sub Admin account was found for this Gmail.'
+      );
+    }
+
+    const subAdminData = subAdminSnapshot.data();
+
+    const authorized =
+      subAdminData.uid === user.uid &&
+      subAdminData.email?.trim().toLowerCase() ===
+        user.email?.trim().toLowerCase() &&
+      subAdminData.role === 'productManager' &&
+      subAdminData.isActive === true;
+
+    if (!authorized) {
+      throw new Error(
+        'Your Sub Admin account is inactive or not authorized.'
+      );
+    }
+
+    // Get assigned permissions
+    const permissions = subAdminData.permissions || {};
+
+    // Redirect according to permissions
+    if (permissions.viewProducts === true) {
+      navigate('/admin/manage-products', {
+        replace: true,
+      });
+      return;
+    }
+
+    if (permissions.addProduct === true) {
+      navigate('/admin/add-product', {
+        replace: true,
+      });
+      return;
+    }
+
+    throw new Error(
+      'Your account has no product access permissions. Contact the Super Admin.'
+    );
+  };
+
+  // ==========================================
+  // LOGIN
+  // ==========================================
+
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
     setError('');
-    setMessage('');
     setLoading(true);
 
     try {
-      if (action === 'register') {
-        await handleRegister();
-      } else {
-        await handleLogin();
-      }
-    } catch (authError) {
-      console.error('Admin authentication error:', authError);
+      const normalizedEmail = email.trim().toLowerCase();
 
-      // Sign out if an admin login attempt fails
-      if (action === 'login' && auth.currentUser) {
+      if (!normalizedEmail || !password) {
+        throw new Error(
+          'Please enter your email and password.'
+        );
+      }
+
+      if (
+        loginType === 'admin' &&
+        normalizedEmail !== ADMIN_EMAIL
+      ) {
+        throw new Error(
+          'This email is not authorized for Super Admin access.'
+        );
+      }
+
+      const credential = await signInWithEmailAndPassword(
+        auth,
+        normalizedEmail,
+        password
+      );
+
+      const user = credential.user;
+
+      // Refresh email verification status
+      await reload(user);
+
+      if (!user.emailVerified) {
+        await signOut(auth);
+
+        throw new Error(
+          'Please verify your email first. Check your Gmail inbox.'
+        );
+      }
+
+      // Refresh Firebase ID token
+      await getIdToken(user, true);
+
+      // Select login pathway
+      if (loginType === 'admin') {
+        await handleSuperAdminLogin(user);
+      } else {
+        await handleSubAdminLogin(user);
+      }
+
+    } catch (authError) {
+      console.error(
+        'Admin authentication error:',
+        authError
+      );
+
+      if (auth.currentUser) {
         await signOut(auth).catch(() => {});
       }
 
       switch (authError.code) {
-        case 'auth/email-already-in-use':
-          setError('This admin account already exists. Please log in.');
-          break;
-
         case 'auth/invalid-credential':
           setError('Incorrect email or password.');
-          break;
-
-        case 'auth/weak-password':
-          setError('Please choose a stronger password.');
           break;
 
         case 'auth/invalid-email':
           setError('Please enter a valid email address.');
           break;
 
+        case 'auth/user-disabled':
+          setError(
+            'This Firebase account has been disabled.'
+          );
+          break;
+
         case 'permission-denied':
           setError(
-            'Firestore permission denied. Please check your ADMIN security rules.'
+            'Firestore permission denied. Please check your security rules.'
           );
           break;
 
         default:
           setError(
-            authError.message || 'Admin authentication failed.'
+            authError.message || 'Authentication failed.'
           );
       }
+
     } finally {
       setLoading(false);
     }
   };
+
+  // ==========================================
+  // UI
+  // ==========================================
 
   return (
     <div className="page-shell admin-login-page">
@@ -205,20 +275,60 @@ const AdminLogin = () => {
             </div>
           </div>
 
+          {/* LOGIN TYPE SELECTION */}
+
+          <div className="admin-login-type">
+            <button
+              type="button"
+              className={
+                loginType === 'admin' ? 'active' : ''
+              }
+              onClick={() =>
+                handleLoginTypeChange('admin')
+              }
+              disabled={loading}
+            >
+              Super Admin
+            </button>
+
+            <button
+              type="button"
+              className={
+                loginType === 'subadmin' ? 'active' : ''
+              }
+              onClick={() =>
+                handleLoginTypeChange('subadmin')
+              }
+              disabled={loading}
+            >
+              Sub Admin
+            </button>
+          </div>
+
           <form
-            onSubmit={(event) => handleSubmit(event, 'login')}
+            onSubmit={handleSubmit}
             className="admin-login-form"
           >
 
             <label>
-              <span>Admin email</span>
+              <span>
+                {loginType === 'admin'
+                  ? 'Super Admin email'
+                  : 'Sub Admin email'}
+              </span>
 
               <input
                 type="email"
                 value={email}
-                onChange={(event) => setEmail(event.target.value)}
+                onChange={(event) =>
+                  setEmail(event.target.value)
+                }
+                placeholder="Enter your Gmail"
                 autoComplete="username"
                 required
+                disabled={
+                  loading || loginType === 'admin'
+                }
               />
             </label>
 
@@ -227,21 +337,31 @@ const AdminLogin = () => {
 
               <div className="admin-password-wrapper">
                 <input
-                  type={showPassword ? 'text' : 'password'}
+                  type={
+                    showPassword ? 'text' : 'password'
+                  }
                   value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  placeholder="Enter admin password"
+                  onChange={(event) =>
+                    setPassword(event.target.value)
+                  }
+                  placeholder="Enter your password"
                   autoComplete="current-password"
                   required
+                  disabled={loading}
                 />
 
                 <button
                   type="button"
                   className="password-toggle"
-                  onClick={() => setShowPassword((current) => !current)}
-                  aria-label={
-                    showPassword ? 'Hide password' : 'Show password'
+                  onClick={() =>
+                    setShowPassword((current) => !current)
                   }
+                  aria-label={
+                    showPassword
+                      ? 'Hide password'
+                      : 'Show password'
+                  }
+                  disabled={loading}
                 >
                   {showPassword ? (
                     <EyeOff size={19} />
@@ -253,14 +373,11 @@ const AdminLogin = () => {
             </label>
 
             {error && (
-              <p className="admin-auth-error" role="alert">
+              <p
+                className="admin-auth-error"
+                role="alert"
+              >
                 {error}
-              </p>
-            )}
-
-            {message && (
-              <p className="admin-auth-success" role="status">
-                {message}
               </p>
             )}
 
@@ -270,17 +387,12 @@ const AdminLogin = () => {
               className="full-width"
               disabled={loading}
             >
-              {loading ? 'Please wait...' : 'Admin Login'}
+              {loading
+                ? 'Please wait...'
+                : loginType === 'admin'
+                  ? 'Super Admin Login'
+                  : 'Sub Admin Login'}
             </Button>
-
-            <button
-              type="button"
-              className="admin-register-button"
-              disabled={loading}
-              onClick={(event) => handleSubmit(event, 'register')}
-            >
-              {loading ? 'Please wait...' : 'Create Admin Account'}
-            </button>
 
           </form>
 

@@ -33,6 +33,7 @@ import Dashboard from './Admin/Dashboard';
 import AddProduct from './Admin/AddProduct';
 import ManageProducts from './Admin/ManageProducts';
 import EditProduct from './Admin/EditProduct';
+import ManageSubAdmins from './Admin/ManageSubAdmins';
 import Categories from './Admin/Categories';
 import Orders from './Admin/Orders';
 import Customers from './Admin/Customers';
@@ -42,7 +43,10 @@ import Settings from './Admin/Settings';
 
 import './App.css';
 
+// ==========================================
 // STOREFRONT LAYOUT
+// ==========================================
+
 const StorefrontLayout = () => (
   <div className="app-shell">
     <Navbar />
@@ -137,7 +141,10 @@ const StorefrontLayout = () => (
   </div>
 );
 
+// ==========================================
 // HASH NAVIGATION
+// ==========================================
+
 const HashNavigation = () => {
   const { hash, pathname } = useLocation();
 
@@ -167,7 +174,10 @@ const HashNavigation = () => {
   return null;
 };
 
+// ==========================================
 // ADMIN NOT FOUND
+// ==========================================
+
 const AdminNotFound = () => (
   <main className="page-shell">
     <div
@@ -178,10 +188,13 @@ const AdminNotFound = () => (
       }}
     >
       <p className="eyebrow">Admin panel</p>
+
       <h1>Admin page not found</h1>
+
       <p className="muted-copy">
         The admin URL you requested does not exist.
       </p>
+
       <Link to="/skinora-admin">
         Return to admin login
       </Link>
@@ -189,7 +202,10 @@ const AdminNotFound = () => (
   </main>
 );
 
+// ==========================================
 // MAIN APP
+// ==========================================
+
 function App() {
   return (
     <BrowserRouter>
@@ -200,13 +216,16 @@ function App() {
           <MagneticCursor />
 
           <Routes>
+
             {/* SECRET ADMIN LOGIN URL */}
+
             <Route
               path="/skinora-admin"
               element={<AdminLogin />}
             />
 
             {/* OLD ADMIN LOGIN URL REDIRECT */}
+
             <Route
               path="/admin/login"
               element={
@@ -214,7 +233,10 @@ function App() {
               }
             />
 
-            {/* PROTECTED ADMIN DASHBOARD */}
+            {/* ==================================
+                ADMIN DASHBOARD
+            ================================== */}
+
             <Route
               path="/admin/dashboard"
               element={
@@ -224,23 +246,35 @@ function App() {
               }
             />
 
+            {/* ==================================
+                ADD PRODUCT
+            ================================== */}
+
             <Route
               path="/admin/add-product"
               element={
-                <AdminRoute>
+                <AdminRoute requiredPermission="addProduct">
                   <AddProduct />
                 </AdminRoute>
               }
             />
 
+            {/* ==================================
+                MANAGE PRODUCTS
+            ================================== */}
+
             <Route
               path="/admin/manage-products"
               element={
-                <AdminRoute>
+                <AdminRoute requiredPermission="viewProducts">
                   <ManageProducts />
                 </AdminRoute>
               }
             />
+
+            {/* ==================================
+                EDIT PRODUCT
+            ================================== */}
 
             <Route
               path="/admin/edit-product"
@@ -255,11 +289,29 @@ function App() {
             <Route
               path="/admin/edit-product/:id"
               element={
-                <AdminRoute>
+                <AdminRoute requiredPermission="updateProduct">
                   <EditProduct />
                 </AdminRoute>
               }
             />
+
+            {/* ==================================
+                MANAGE SUB ADMINS
+                SUPER ADMIN ONLY
+            ================================== */}
+
+            <Route
+              path="/admin/manage-subadmins"
+              element={
+                <AdminRoute>
+                  <ManageSubAdmins />
+                </AdminRoute>
+              }
+            />
+
+            {/* ==================================
+                OTHER SUPER ADMIN ONLY PAGES
+            ================================== */}
 
             <Route
               path="/admin/categories"
@@ -315,16 +367,22 @@ function App() {
               }
             />
 
+            {/* ADMIN NOT FOUND */}
+
             <Route
               path="/admin/*"
               element={<AdminNotFound />}
             />
 
-            {/* CUSTOMER WEBSITE */}
+            {/* ==================================
+                CUSTOMER WEBSITE
+            ================================== */}
+
             <Route
               path="/*"
               element={<StorefrontLayout />}
             />
+
           </Routes>
         </StoreProvider>
       </AuthProvider>

@@ -13,14 +13,22 @@ const firebaseConfig = {
   appId: "1:597804317596:web:baf77f193440373703a659"
 };
 
-// Initialize Firebase
+// Main Firebase App
 const app = getApps().length
   ? getApp()
   : initializeApp(firebaseConfig);
 
-// Firebase Services
+// Main Firebase Services
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+
+// Secondary Firebase App
+const secondaryApp =
+  getApps().find((item) => item.name === "SecondaryApp") ||
+  initializeApp(firebaseConfig, "SecondaryApp");
+
+// Secondary Authentication
+export const secondaryAuth = getAuth(secondaryApp);
 
 export default app;

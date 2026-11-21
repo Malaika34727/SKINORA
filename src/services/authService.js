@@ -6,7 +6,6 @@ import {
   sendPasswordResetEmail,
   signOut,
   updateProfile,
-  getIdTokenResult,
 } from 'firebase/auth';
 
 import {
@@ -24,6 +23,9 @@ import { auth, db } from '../firebase';
 
 const normalizeEmail = (email = '') => email.trim().toLowerCase();
 
+const SUPER_ADMIN_UID = 'sDbSHVhgrmcPfLv0PJP2QDfLKFp1';
+
+const SUPER_ADMIN_EMAIL = 'dbestmalaika@gmail.com';
 
 // ==========================================
 // CREATE CUSTOMER ACCOUNT
@@ -81,7 +83,6 @@ export const createCustomerAccount = async ({
   }
 };
 
-
 // ==========================================
 // CUSTOMER LOGIN
 // ==========================================
@@ -94,9 +95,6 @@ export const signInCustomer = async (email, password) => {
   );
 
   const user = credential.user;
-
-  // Check whether customer profile exists.
-  // If missing, recover it for an already-created Auth account.
 
   try {
     const customerRef = doc(db, 'CREATEACCUSER', user.uid);
@@ -116,7 +114,7 @@ export const signInCustomer = async (email, password) => {
     console.error('Customer profile check failed:', error);
   }
 
-  // Save login history without logging the user out
+  // Save login history
   try {
     await addDoc(collection(db, 'LOGINUSER'), {
       uid: user.uid,
@@ -134,7 +132,6 @@ export const signInCustomer = async (email, password) => {
   return user;
 };
 
-
 // ==========================================
 // PASSWORD RESET
 // ==========================================
@@ -146,7 +143,6 @@ export const resetCustomerPassword = async (email) => {
   );
 };
 
-
 // ==========================================
 // LOGOUT
 // ==========================================
@@ -155,42 +151,126 @@ export const signOutCustomer = async () => {
   await signOut(auth);
 };
 
-
 // ==========================================
-// ADMIN STATUS
+// GET ADMIN STATUS
 // ==========================================
 
 export const getAdminStatus = async (user) => {
   if (!user) {
     return {
       isAdmin: false,
+      role: null,
+      permissions: {},
       source: 'none',
     };
   }
 
   try {
-    const token = await getIdTokenResult(user, true);
+    // Refresh Firebase user verification status.
+    await user.reload();
 
-    if (token.claims.admin === true) {
+    if (!user.emailVerified) {
       return {
-        isAdmin: true,
-        source: 'custom-claim',
+        isAdmin: false,
+        role: null,
+        permissions: {},
+        source: 'unverified',
       };
     }
-  } catch (error) {
-    console.warn('Admin token check failed:', error);
-  }
 
-  try {
-    const snapshot = await getDoc(
-      doc(db, 'admins', user.uid)
+    // ======================================
+    // SUPER ADMIN VERIFICATION
+    // ======================================
+
+    if (user.uid === SUPER_ADMIN_UID) {
+      const adminRef = doc(
+        db,
+        'ADMIN',
+        SUPER_ADMIN_UID
+      );
+
+      const snapshot = await getDoc(adminRef);
+
+      if (!snapshot.exists()) {
+        return {
+          isAdmin: false,
+          role: null,
+          permissions: {},
+          source: 'none',
+        };
+      }
+
+      const data = snapshot.data();
+
+      const authorized =
+        normalizeEmail(user.email) === SUPER_ADMIN_EMAIL &&
+        data.uid === SUPER_ADMIN_UID &&
+        normalizeEmail(data.email) === SUPER_ADMIN_EMAIL &&
+        data.role === 'admin' &&
+        data.isActive === true;
+
+      return {
+        isAdmin: authorized,
+        role: authorized ? 'admin' : null,
+        permissions: {},
+        source: 'super-admin',
+      };
+    }
+
+    // ======================================
+    // SUB ADMIN VERIFICATION
+    // ======================================
+
+    const subAdminRef = doc(
+      db,
+      'ADMIN',
+      SUPER_ADMIN_UID,
+      'SUBADMIN',
+      user.uid
     );
 
+    const subAdminSnapshot = await getDoc(subAdminRef);
+
+    if (!subAdminSnapshot.exists()) {
+      return {
+        isAdmin: false,
+        role: null,
+        permissions: {},
+        source: 'none',
+      };
+    }
+
+    const subAdminData = subAdminSnapshot.data();
+
+    const authorized =
+      subAdminData.uid === user.uid &&
+      normalizeEmail(user.email) === normalizeEmail(subAdminData.email) &&
+      subAdminData.role === 'productManager' &&
+      subAdminData.isActive === true;
+
+    if (!authorized) {
+      return {
+        isAdmin: false,
+        role: null,
+        permissions: {},
+        source: 'sub-admin',
+      };
+    }
+
+    // Return only explicitly enabled permissions.
+    const permissions = {
+      viewProducts: subAdminData.permissions?.viewProducts === true,
+      addProduct: subAdminData.permissions?.addProduct === true,
+      updateProduct: subAdminData.permissions?.updateProduct === true,
+      deleteProduct: subAdminData.permissions?.deleteProduct === true,
+      importProducts: subAdminData.permissions?.importProducts === true,
+    };
+
     return {
-      isAdmin: snapshot.exists(),
-      source: snapshot.exists()
-        ? 'firestore-doc'
-        : 'none',
+      isAdmin: true,
+      role: 'productManager',
+      permissions,
+      source: 'sub-admin',
     };
 
   } catch (error) {
@@ -198,11 +278,12 @@ export const getAdminStatus = async (user) => {
 
     return {
       isAdmin: false,
+      role: null,
+      permissions: {},
       source: 'error',
     };
   }
 };
-
 
 // ==========================================
 // REALTIME CUSTOMER CART
@@ -233,7 +314,6 @@ export const listenToCustomerCart = (
   );
 };
 
-
 // ==========================================
 // SAVE CUSTOMER CART
 // ==========================================
@@ -250,7 +330,6 @@ export const saveCustomerCart = async (uid, cart) => {
     cartUpdatedAt: serverTimestamp(),
   });
 };
-
 
 // ==========================================
 // GET CUSTOMER PROFILE
@@ -274,7 +353,6 @@ export const getCustomerProfile = async (uid) => {
     ...snapshot.data(),
   };
 };
-
 
 // ==========================================
 // UPDATE CUSTOMER PROFILE
