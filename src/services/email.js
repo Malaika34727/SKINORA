@@ -1,38 +1,274 @@
 import emailjs from '@emailjs/browser';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../firebase';
+
+// =====================================================
+// VALIDATE IMAGE URL
+// Only actual HTTP/HTTPS URLs are accepted
+// =====================================================
+
+const extractImageUrl = (value) => {
+  if (typeof value === 'string') {
+    const url = value.trim();
+
+    if (url.startsWith('https://') || url.startsWith('http://')) {
+      return url;
+    }
+
+    return '';
+  }
+
+  if (value && typeof value === 'object') {
+    const candidates = [
+      value.imageUrl,
+      value.url,
+      value.src,
+      value.downloadURL,
+      value.downloadUrl,
+    ];
+
+    for (const candidate of candidates) {
+      const validUrl = extractImageUrl(candidate);
+
+      if (validUrl) return validUrl;
+    }
+  }
+
+  return '';
+};
+
+// =====================================================
+// GET IMAGE FROM ORDER ITEM
+// =====================================================
+
+const getImageFromItem = (item) => {
+  const candidates = [
+    item?.imageUrl,
+    item?.image,
+    item?.productImage,
+    item?.product?.imageUrl,
+    item?.product?.image,
+    item?.images,
+    item?.product?.images,
+  ];
+
+  for (const candidate of candidates) {
+    const directUrl = extractImageUrl(candidate);
+
+    if (directUrl) return directUrl;
+
+    if (Array.isArray(candidate)) {
+      for (const image of candidate) {
+        const arrayUrl = extractImageUrl(image);
+
+        if (arrayUrl) return arrayUrl;
+      }
+    }
+  }
+
+  return '';
+};
+
+// =====================================================
+// FETCH IMAGE FROM FIRESTORE IF MISSING
+// =====================================================
+
+const getFirestoreProductImage = async (item) => {
+  // First try image already saved inside order item
+  const existingImage = getImageFromItem(item);
+
+  if (existingImage) {
+    return existingImage;
+  }
+
+  // Find product ID
+  const productId =
+    item?.productId ||
+    item?.id ||
+    item?.product?.id ||
+    item?.product?.productId;
+
+  if (!productId) {
+    console.warn('SKINORA: Product ID missing for image lookup.', item);
+    return '';
+  }
+
+  try {
+    const productRef = doc(db, 'products', String(productId));
+    const productSnapshot = await getDoc(productRef);
+
+    if (!productSnapshot.exists()) {
+      console.warn('SKINORA: Product not found:', productId);
+      return '';
+    }
+
+    const product = productSnapshot.data();
+
+    const candidates = [
+      product?.imageUrl,
+      product?.image,
+      product?.productImage,
+      product?.images,
+    ];
+
+    for (const candidate of candidates) {
+      const directUrl = extractImageUrl(candidate);
+
+      if (directUrl) return directUrl;
+
+      if (Array.isArray(candidate)) {
+        for (const image of candidate) {
+          const arrayUrl = extractImageUrl(image);
+
+          if (arrayUrl) return arrayUrl;
+        }
+      }
+    }
+
+    console.warn(
+      'SKINORA: No valid image URL found in product:',
+      productId,
+      product
+    );
+
+    return '';
+  } catch (error) {
+    console.error(
+      'SKINORA: Firestore image lookup failed:',
+      productId,
+      error
+    );
+
+    return '';
+  }
+};
+
+// =====================================================
+// SEND ORDER CONFIRMATION EMAIL
+// =====================================================
 
 export const sendOrderConfirmation = async (order) => {
   const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
   const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
   const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
 
+  // EmailJS configuration
   if (!serviceId || !templateId || !publicKey) {
-    throw new Error('EmailJS is not configured. Set its VITE_EMAILJS_* environment variables.');
+    throw new Error(
+      'EmailJS is not configured. Check your environment variables.'
+    );
   }
 
-  const orderDate = new Date(order.orderDate || Date.now()).toLocaleString('en-PK');
-  const itemLines = order.items.map((item) =>
-    `${item.name} — ${item.quantity} × PKR ${item.unitPrice} = PKR ${item.lineTotal}`,
+  // Order validation
+  if (!order) {
+    throw new Error('Order information is missing.');
+  }
+
+  if (!order.customerEmail) {
+    throw new Error('Customer email address is missing.');
+  }
+
+  if (!Array.isArray(order.items) || order.items.length === 0) {
+    throw new Error('Order products are missing.');
+  }
+
+  // Order reference
+  const orderReference =
+    order.orderNumber ||
+    order.trackingId ||
+    order.orderId ||
+    order.id;
+
+  if (!orderReference) {
+    throw new Error('Order reference is missing.');
+  }
+
+  // ===================================================
+  // PREPARE PRODUCTS AND RESOLVE IMAGES
+  // ===================================================
+
+  const orders = await Promise.all(
+    order.items.map(async (item) => {
+      const imageUrl = await getFirestoreProductImage(item);
+
+      const product = {
+        name:
+          item.name ||
+          item.title ||
+          item.product?.name ||
+          'SKINORA Product',
+
+        price: Number(item.price) || 0,
+
+        units: Number(item.quantity ?? item.qty) || 0,
+
+        image: imageUrl,
+      };
+
+      console.log('SKINORA Email product:', {
+        name: product.name,
+        image: product.image,
+        hasImage: Boolean(product.image),
+      });
+
+      return product;
+    })
   );
-  const orderReference = order.orderId || order.trackingId || order.orderNumber || order.id;
+
+  // ===================================================
+  // EMAILJS TEMPLATE VARIABLES
+  // ===================================================
+
   const templateParams = {
-    to_email: order.customerEmail,
-    customer_email: order.customerEmail,
-    customer_name: order.customerName,
-    order_id: orderReference,
-    order_number: orderReference,
-    tracking_id: orderReference,
-    order_document_id: orderReference,
-    products: itemLines.join('\n'),
-    order_items: itemLines.join('\n'),
-    subtotal: order.subtotal,
-    delivery_charges: order.deliveryCharges ?? order.shippingCharges ?? 0,
-    shipping_address: order.shippingAddress || '',
-    payment_method: order.paymentMethod || '',
-    payment_status: order.paymentStatus || 'Pending',
-    total_amount: order.totalAmount,
-    order_date: orderDate,
-    message: `Thank you for shopping with SKINORA. Your order ${order.orderNumber} has been received.`,
+    email: order.customerEmail,
+
+    order_id: String(orderReference),
+
+    orders,
+
+    cost: {
+      shipping: Number(
+        order.deliveryCharges ?? order.shippingCharges ?? 0
+      ),
+
+      tax: Number(order.tax) || 0,
+
+      total: Number(order.totalAmount) || 0,
+    },
   };
 
-  await emailjs.send(serviceId, templateId, templateParams, { publicKey });
+  // Debug: check exact image data being sent
+  console.log('SKINORA EmailJS payload:', {
+    email: templateParams.email,
+    order_id: templateParams.order_id,
+    products: templateParams.orders.map((item) => ({
+      name: item.name,
+      image: item.image,
+    })),
+  });
+
+  // ===================================================
+  // SEND EMAIL
+  // ===================================================
+
+  try {
+    const response = await emailjs.send(
+      serviceId,
+      templateId,
+      templateParams,
+      { publicKey }
+    );
+
+    console.log('SKINORA confirmation email sent successfully:', response);
+
+    return response;
+  } catch (error) {
+    console.error('SKINORA confirmation email failed:', error);
+
+    throw new Error(
+      error?.text ||
+        error?.message ||
+        'Unable to send order confirmation email.'
+    );
+  }
 };

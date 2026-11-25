@@ -2,10 +2,16 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import {
+  doc,
+  getDoc,
+  setDoc,
+  serverTimestamp,
+} from 'firebase/firestore';
 
 import Button from '../Components/Button';
 import { logoImage } from '../data/products';
-import { auth } from '../firebase';
+import { auth, db } from '../firebase';
 
 import {
   createCustomerAccount,
@@ -14,12 +20,37 @@ import {
   signOutCustomer,
 } from '../services/authService';
 
-import {
-  assertAppCheckConfigured,
-  ensureCustomerProfile,
-} from '../services/orders';
-
 import './Login.css';
+
+// Create customer profile for Google users
+const ensureCustomerProfile = async (user) => {
+  if (!user?.uid || !user.email) {
+    throw new Error('Google account information is incomplete.');
+  }
+
+  const userRef = doc(db, 'CREATEACCUSER', user.uid);
+  const userSnapshot = await getDoc(userRef);
+
+  // Profile already exists
+  if (userSnapshot.exists()) {
+    return userSnapshot.data();
+  }
+
+  // Create profile for a new Google customer
+  const customerData = {
+    uid: user.uid,
+    name: user.displayName || 'Customer',
+    email: user.email,
+    phone: user.phoneNumber || '',
+    provider: 'google.com',
+    cart: [],
+    createdAt: serverTimestamp(),
+  };
+
+  await setDoc(userRef, customerData);
+
+  return customerData;
+};
 
 const Login = ({ initialMode = 'login' }) => {
   const [name, setName] = useState('');
@@ -34,7 +65,6 @@ const Login = ({ initialMode = 'login' }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Automatically determine form from the current URL
   const mode =
     location.pathname === '/signup' || initialMode === 'register'
       ? 'register'
@@ -62,7 +92,7 @@ const Login = ({ initialMode = 'login' }) => {
     }
   };
 
-  // CREATE ACCOUNT
+  // CREATE CUSTOMER ACCOUNT
   const handleRegister = async (event) => {
     event.preventDefault();
 
@@ -124,8 +154,6 @@ const Login = ({ initialMode = 'login' }) => {
     let signedInUser = null;
 
     try {
-      assertAppCheckConfigured();
-
       const credential = await signInWithPopup(
         auth,
         new GoogleAuthProvider()
@@ -133,11 +161,7 @@ const Login = ({ initialMode = 'login' }) => {
 
       signedInUser = credential.user;
 
-      await ensureCustomerProfile({
-        name: signedInUser.displayName || 'Customer',
-        email: signedInUser.email || '',
-        phone: signedInUser.phoneNumber || '',
-      });
+      await ensureCustomerProfile(signedInUser);
 
       goToHome();
     } catch (loginError) {

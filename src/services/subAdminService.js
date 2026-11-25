@@ -9,6 +9,7 @@ import {
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   setDoc,
   updateDoc,
@@ -27,7 +28,7 @@ const subAdminCollection = collection(
 );
 
 // ==========================================
-// DEFAULT PRODUCT MANAGER PERMISSIONS
+// PRODUCT MANAGER PERMISSIONS
 // ==========================================
 
 export const productManagerPermissions = {
@@ -36,6 +37,31 @@ export const productManagerPermissions = {
   updateProduct: true,
   deleteProduct: true,
   importProducts: false,
+};
+
+// ==========================================
+// ORDER MANAGER PERMISSIONS
+// ==========================================
+
+export const orderManagerPermissions = {
+  viewOrders: true,
+  updateOrderStatus: true,
+  verifyPayments: true,
+};
+
+// ==========================================
+// ROLE CONFIGURATION
+// ==========================================
+
+const roleConfiguration = {
+  productManager: {
+    label: 'Product Manager',
+    permissions: productManagerPermissions,
+  },
+  orderManager: {
+    label: 'Order Manager',
+    permissions: orderManagerPermissions,
+  },
 };
 
 // ==========================================
@@ -49,17 +75,21 @@ const verifySuperAdmin = () => {
 };
 
 // ==========================================
-// VALIDATE PERMISSIONS
+// NORMALIZE PERMISSIONS
 // ==========================================
 
-const normalizePermissions = (permissions = {}) => {
-  const allowedPermissions = Object.keys(productManagerPermissions);
+const normalizePermissions = (role, permissions = {}) => {
+  const configuration = roleConfiguration[role];
+
+  if (!configuration) {
+    throw new Error('Invalid Sub Admin role.');
+  }
 
   const normalized = {};
 
-  for (const permission of allowedPermissions) {
+  Object.keys(configuration.permissions).forEach((permission) => {
     normalized[permission] = permissions[permission] === true;
-  }
+  });
 
   return normalized;
 };
@@ -72,7 +102,7 @@ export const createSubAdmin = async ({
   email,
   password,
   role = 'productManager',
-  permissions = productManagerPermissions,
+  permissions,
 }) => {
   verifySuperAdmin();
 
@@ -86,11 +116,16 @@ export const createSubAdmin = async ({
     throw new Error('Password must contain at least 6 characters.');
   }
 
-  if (role !== 'productManager') {
+  const configuration = roleConfiguration[role];
+
+  if (!configuration) {
     throw new Error('Invalid Sub Admin role.');
   }
 
-  const safePermissions = normalizePermissions(permissions);
+  const safePermissions = normalizePermissions(
+    role,
+    permissions ?? configuration.permissions
+  );
 
   let credential = null;
 
@@ -114,8 +149,8 @@ export const createSubAdmin = async ({
     await setDoc(subAdminRef, {
       uid: subAdmin.uid,
       email: normalizedEmail,
-      role: 'productManager',
-      roleLabel: 'Product Manager',
+      role,
+      roleLabel: configuration.label,
       permissions: safePermissions,
       isActive: true,
       createdBy: SUPER_ADMIN_UID,
@@ -129,15 +164,13 @@ export const createSubAdmin = async ({
       await sendEmailVerification(subAdmin);
     } catch (emailError) {
       verificationSent = false;
-      console.error(
-        'Verification email could not be sent:',
-        emailError
-      );
+      console.error('Verification email could not be sent:', emailError);
     }
 
     return {
       uid: subAdmin.uid,
       email: normalizedEmail,
+      role,
       verificationSent,
     };
 
@@ -149,10 +182,7 @@ export const createSubAdmin = async ({
       try {
         await deleteUser(credential.user);
       } catch (cleanupError) {
-        console.error(
-          'Sub Admin account cleanup failed:',
-          cleanupError
-        );
+        console.error('Sub Admin account cleanup failed:', cleanupError);
       }
     }
 
@@ -160,10 +190,7 @@ export const createSubAdmin = async ({
 
   } finally {
     await signOut(secondaryAuth).catch((error) => {
-      console.error(
-        'Secondary authentication sign-out failed:',
-        error
-      );
+      console.error('Secondary authentication sign-out failed:', error);
     });
   }
 };
@@ -197,14 +224,25 @@ export const updateSubAdminPermissions = async (
     throw new Error('Sub Admin UID is required.');
   }
 
-  const updatedPermissions = normalizePermissions(permissions);
-
   const subAdminRef = doc(
     db,
     'ADMIN',
     SUPER_ADMIN_UID,
     'SUBADMIN',
     subAdminUID
+  );
+
+  const snapshot = await getDoc(subAdminRef);
+
+  if (!snapshot.exists()) {
+    throw new Error('Sub Admin not found.');
+  }
+
+  const role = snapshot.data().role;
+
+  const updatedPermissions = normalizePermissions(
+    role,
+    permissions
   );
 
   await updateDoc(subAdminRef, {

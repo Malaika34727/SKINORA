@@ -28,6 +28,39 @@ const SUPER_ADMIN_UID = 'sDbSHVhgrmcPfLv0PJP2QDfLKFp1';
 const SUPER_ADMIN_EMAIL = 'dbestmalaika@gmail.com';
 
 // ==========================================
+// ROLE PERMISSIONS
+// ==========================================
+
+const rolePermissions = {
+  productManager: {
+    viewProducts: true,
+    addProduct: true,
+    updateProduct: true,
+    deleteProduct: true,
+    importProducts: true,
+  },
+
+  orderManager: {
+    viewOrders: true,
+    updateOrderStatus: true,
+    verifyPayments: true,
+  },
+};
+
+const getUserPermissions = (role, permissions = {}) => {
+  const allowedPermissions = rolePermissions[role];
+
+  if (!allowedPermissions) return {};
+
+  return Object.fromEntries(
+    Object.keys(allowedPermissions).map((key) => [
+      key,
+      permissions[key] === true,
+    ])
+  );
+};
+
+// ==========================================
 // CREATE CUSTOMER ACCOUNT
 // ==========================================
 
@@ -68,10 +101,7 @@ export const createCustomerAccount = async ({
     try {
       await sendEmailVerification(user);
     } catch (error) {
-      console.warn(
-        'Verification email could not be sent:',
-        error
-      );
+      console.warn('Verification email could not be sent:', error);
     }
 
     return user;
@@ -114,7 +144,6 @@ export const signInCustomer = async (email, password) => {
     console.error('Customer profile check failed:', error);
   }
 
-  // Save login history
   try {
     await addDoc(collection(db, 'LOGINUSER'), {
       uid: user.uid,
@@ -123,10 +152,7 @@ export const signInCustomer = async (email, password) => {
       loggedInAt: serverTimestamp(),
     });
   } catch (error) {
-    console.error(
-      'Login record could not be saved:',
-      error
-    );
+    console.error('Login record could not be saved:', error);
   }
 
   return user;
@@ -166,7 +192,6 @@ export const getAdminStatus = async (user) => {
   }
 
   try {
-    // Refresh Firebase user verification status.
     await user.reload();
 
     if (!user.emailVerified) {
@@ -242,10 +267,12 @@ export const getAdminStatus = async (user) => {
 
     const subAdminData = subAdminSnapshot.data();
 
+    const role = subAdminData.role;
+
     const authorized =
       subAdminData.uid === user.uid &&
       normalizeEmail(user.email) === normalizeEmail(subAdminData.email) &&
-      subAdminData.role === 'productManager' &&
+      Object.hasOwn(rolePermissions, role) &&
       subAdminData.isActive === true;
 
     if (!authorized) {
@@ -257,18 +284,14 @@ export const getAdminStatus = async (user) => {
       };
     }
 
-    // Return only explicitly enabled permissions.
-    const permissions = {
-      viewProducts: subAdminData.permissions?.viewProducts === true,
-      addProduct: subAdminData.permissions?.addProduct === true,
-      updateProduct: subAdminData.permissions?.updateProduct === true,
-      deleteProduct: subAdminData.permissions?.deleteProduct === true,
-      importProducts: subAdminData.permissions?.importProducts === true,
-    };
+    const permissions = getUserPermissions(
+      role,
+      subAdminData.permissions
+    );
 
     return {
       isAdmin: true,
-      role: 'productManager',
+      role,
       permissions,
       source: 'sub-admin',
     };
@@ -368,10 +391,7 @@ export const updateCustomerProfile = async (
     uid
   );
 
-  const allowedFields = [
-    'name',
-    'phone',
-  ];
+  const allowedFields = ['name', 'phone'];
 
   const safeUpdates = Object.fromEntries(
     Object.entries(updates).filter(([key]) =>
@@ -380,9 +400,7 @@ export const updateCustomerProfile = async (
   );
 
   if (Object.keys(safeUpdates).length === 0) {
-    throw new Error(
-      'No valid profile fields to update.'
-    );
+    throw new Error('No valid profile fields to update.');
   }
 
   await updateDoc(customerRef, safeUpdates);
