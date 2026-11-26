@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -16,7 +15,7 @@ import {
 
 import Button from '../Components/Button';
 import { logoImage } from '../data/products';
-import { auth, db } from '../firebase';
+import { auth, secondaryAuth, db, secondaryDb } from '../firebase';
 
 import './AdminLogin.css';
 
@@ -101,7 +100,7 @@ const AdminLogin = () => {
 
   const handleSubAdminLogin = async (user) => {
     const subAdminRef = doc(
-      db,
+      secondaryDb,
       'ADMIN',
       SUPER_ADMIN_UID,
       'SUBADMIN',
@@ -164,6 +163,10 @@ const AdminLogin = () => {
     setError('');
     setLoading(true);
 
+    // Select separate Firebase Auth instance
+    const selectedAuth =
+      loginType === 'admin' ? auth : secondaryAuth;
+
     try {
       const normalizedEmail = email.trim().toLowerCase();
 
@@ -182,8 +185,9 @@ const AdminLogin = () => {
         );
       }
 
+      // Sign in with selected authentication
       const credential = await signInWithEmailAndPassword(
-        auth,
+        selectedAuth,
         normalizedEmail,
         password
       );
@@ -194,7 +198,7 @@ const AdminLogin = () => {
       await reload(user);
 
       if (!user.emailVerified) {
-        await signOut(auth);
+        await signOut(selectedAuth);
 
         throw new Error(
           'Please verify your email first. Check your Gmail inbox.'
@@ -217,8 +221,9 @@ const AdminLogin = () => {
         authError
       );
 
-      if (auth.currentUser) {
-        await signOut(auth).catch(() => {});
+      // Sign out only the selected authentication session
+      if (selectedAuth.currentUser) {
+        await signOut(selectedAuth).catch(() => {});
       }
 
       switch (authError.code) {

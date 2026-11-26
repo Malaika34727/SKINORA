@@ -28,7 +28,9 @@ const secondaryApp =
   getApps().find((item) => item.name === "SecondaryApp") ||
   initializeApp(firebaseConfig, "SecondaryApp");
 
-// Secondary Authentication
+// Secondary Firebase Services
 export const secondaryAuth = getAuth(secondaryApp);
+export const secondaryDb = getFirestore(secondaryApp);
+export const secondaryStorage = getStorage(secondaryApp);
 
 export default app;

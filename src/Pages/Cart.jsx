@@ -26,7 +26,9 @@ const Cart = () => {
     clearCart,
   } = useStore();
 
-  const { user } = useAuth();
+  // CUSTOMER SESSION ONLY - MAIN AUTH
+  const { customerUser, loading: authLoading } = useAuth();
+  const user = customerUser;
 
   const [customer, setCustomer] = useState({
     name: '',
@@ -484,7 +486,7 @@ const Cart = () => {
                   />
                 </label>
 
-                {/* EMAIL */}
+                {/* CUSTOMER EMAIL */}
 
                 <label>
                   <span>Email address</span>
@@ -570,7 +572,7 @@ const Cart = () => {
                   </div>
                 )}
 
-                {!user && (
+                {!user && !authLoading && (
                   <p>
                     <Link to="/login" state={{ from: '/cart' }}>
                       Sign in
@@ -599,6 +601,7 @@ const Cart = () => {
                   variant="primary"
                   disabled={
                     !user ||
+                    authLoading ||
                     checkoutBlocked ||
                     submitting ||
                     productsLoading ||
@@ -611,7 +614,9 @@ const Cart = () => {
                     ? 'Placing order…'
                     : !user
                       ? 'Sign in to checkout'
-                      : productsLoading || settingsLoading
+                      : authLoading ||
+                        productsLoading ||
+                        settingsLoading
                         ? 'Loading checkout…'
                         : checkoutBlocked
                           ? 'Checkout blocked'

@@ -13,45 +13,82 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 
-import { auth, db } from '../firebase';
+import {
+  auth,
+  secondaryAuth,
+  db,
+  secondaryDb,
+} from '../firebase';
+
+import { mainStorage, adminStorage } from './storage';
+
 import { initialProducts } from '../data/products';
 import { deleteProductImage, uploadProductImage } from './storage';
 import { getAdminStatus } from './authService';
 
+// ==========================================
+// PUBLIC PRODUCTS COLLECTION
+// ==========================================
+
+// Public product listeners continue using Main Firebase DB.
 const productsCollection = collection(db, 'products');
 
 // ==========================================
-// CHECK PRODUCT PERMISSIONS
+// VERIFY PRODUCT PERMISSIONS
 // ==========================================
 
 const verifyProductPermission = async (permission) => {
-  const user = auth.currentUser;
+  const adminSessions = [
+    {
+      user: auth.currentUser,
+      database: db,
+      storage: mainStorage,
+    },
+    {
+      user: secondaryAuth.currentUser,
+      database: secondaryDb,
+      storage: adminStorage,
+    },
+  ];
 
-  if (!user) {
-    throw new Error('Please log in to continue.');
-  }
+  for (const session of adminSessions) {
+    if (!session.user) continue;
 
-  const adminStatus = await getAdminStatus(user);
+    const adminStatus = await getAdminStatus(
+      session.user,
+      session.database,
+    );
 
-  if (!adminStatus.isAdmin) {
-    throw new Error('You are not authorized to manage products.');
-  }
+    if (!adminStatus.isAdmin) continue;
 
-  // Super Admin has full product access
-  if (adminStatus.role === 'admin') {
-    return true;
-  }
+    // Super Admin has complete product access.
+    if (adminStatus.role === 'admin') {
+      return {
+        user: session.user,
+        database: session.database,
+        storage: session.storage,
+        isSuperAdmin: true,
+      };
+    }
 
-  // Check individual Sub Admin permission
-  if (
-    adminStatus.role === 'productManager' &&
-    adminStatus.permissions?.[permission] === true
-  ) {
-    return true;
+    // Sub Admin must have the requested permission.
+    if (
+      adminStatus.role === 'productManager' &&
+      adminStatus.permissions?.[permission] === true
+    ) {
+      return {
+        user: session.user,
+        database: session.database,
+        storage: session.storage,
+        isSuperAdmin: false,
+      };
+    }
   }
 
   throw new Error(
-    `You do not have permission to ${permission.replace(/([A-Z])/g, ' $1').toLowerCase()}.`
+    `You do not have permission to ${permission
+      .replace(/([A-Z])/g, ' $1')
+      .toLowerCase()}.`
   );
 };
 
@@ -98,10 +135,20 @@ export const listenToProducts = (onProducts, onError) => onSnapshot(
 // ==========================================
 
 export const createProduct = async (values, file) => {
-  await verifyProductPermission('addProduct');
+  const adminSession = await verifyProductPermission('addProduct');
 
-  const productRef = doc(productsCollection);
-  const image = await uploadProductImage(productRef.id, file);
+  const adminProductsCollection = collection(
+    adminSession.database,
+    'products',
+  );
+
+  const productRef = doc(adminProductsCollection);
+
+  const image = await uploadProductImage(
+    productRef.id,
+    file,
+    adminSession.storage,
+  );
 
   const { discountPrice, ...productValues } = values;
 
@@ -109,7 +156,9 @@ export const createProduct = async (values, file) => {
     await setDoc(productRef, {
       ...productValues,
 
-      ...(discountPrice === undefined || discountPrice === null || discountPrice === ''
+      ...(discountPrice === undefined
+        || discountPrice === null
+        || discountPrice === ''
         ? {}
         : { discountPrice: Number(discountPrice) }),
 
@@ -120,7 +169,10 @@ export const createProduct = async (values, file) => {
     });
   } catch (error) {
     try {
-      await deleteProductImage(image.imagePath);
+      await deleteProductImage(
+        image.imagePath,
+        adminSession.storage,
+      );
     } catch (cleanupError) {
       throw new AggregateError(
         [error, cleanupError],
@@ -144,9 +196,14 @@ export const createProduct = async (values, file) => {
 // ==========================================
 
 export const updateProduct = async (productId, values, file) => {
-  await verifyProductPermission('updateProduct');
+  const adminSession = await verifyProductPermission('updateProduct');
 
-  const productRef = doc(db, 'products', productId);
+  const productRef = doc(
+    adminSession.database,
+    'products',
+    productId,
+  );
+
   const currentSnapshot = await getDoc(productRef);
 
   if (!currentSnapshot.exists()) {
@@ -154,8 +211,13 @@ export const updateProduct = async (productId, values, file) => {
   }
 
   const oldImagePath = currentSnapshot.data().imagePath;
+
   const newImage = file
-    ? await uploadProductImage(productId, file)
+    ? await uploadProductImage(
+        productId,
+        file,
+        adminSession.storage,
+      )
     : null;
 
   try {
@@ -165,7 +227,8 @@ export const updateProduct = async (productId, values, file) => {
       ...(Object.prototype.hasOwnProperty.call(values, 'discountPrice')
         ? {
             discountPrice:
-              values.discountPrice === '' || values.discountPrice === null
+              values.discountPrice === ''
+                || values.discountPrice === null
                 ? deleteField()
                 : Number(values.discountPrice),
           }
@@ -177,7 +240,10 @@ export const updateProduct = async (productId, values, file) => {
   } catch (error) {
     if (newImage) {
       try {
-        await deleteProductImage(newImage.imagePath);
+        await deleteProductImage(
+          newImage.imagePath,
+          adminSession.storage,
+        );
       } catch (cleanupError) {
         throw new AggregateError(
           [error, cleanupError],
@@ -194,7 +260,10 @@ export const updateProduct = async (productId, values, file) => {
 
   if (newImage && oldImagePath) {
     try {
-      await deleteProductImage(oldImagePath);
+      await deleteProductImage(
+        oldImagePath,
+        adminSession.storage,
+      );
     } catch (error) {
       cleanupWarning =
         `Product updated, but its previous image could not be deleted: ${error.message}`;
@@ -209,9 +278,14 @@ export const updateProduct = async (productId, values, file) => {
 // ==========================================
 
 export const removeProduct = async (productId) => {
-  await verifyProductPermission('deleteProduct');
+  const adminSession = await verifyProductPermission('deleteProduct');
 
-  const productRef = doc(db, 'products', productId);
+  const productRef = doc(
+    adminSession.database,
+    'products',
+    productId,
+  );
+
   const productSnapshot = await getDoc(productRef);
 
   if (!productSnapshot.exists()) {
@@ -221,7 +295,11 @@ export const removeProduct = async (productId) => {
   await deleteDoc(productRef);
 
   try {
-    await deleteProductImage(productSnapshot.data().imagePath);
+    await deleteProductImage(
+      productSnapshot.data().imagePath,
+      adminSession.storage,
+    );
+
     return '';
   } catch (error) {
     return `Product deleted, but its image could not be deleted: ${error.message}`;
@@ -233,13 +311,22 @@ export const removeProduct = async (productId) => {
 // ==========================================
 
 export const importStarterCatalog = async () => {
-  await verifyProductPermission('importProducts');
+  const adminSession = await verifyProductPermission('importProducts');
 
-  const existingProducts = await getDocs(productsCollection);
+  const adminProductsCollection = collection(
+    adminSession.database,
+    'products',
+  );
+
+  const existingProducts = await getDocs(
+    adminProductsCollection,
+  );
 
   const existingNames = new Set(
     existingProducts.docs.map((product) =>
-      String(product.data().name || '').trim().toLowerCase()
+      String(product.data().name || '')
+        .trim()
+        .toLowerCase()
     ),
   );
 
@@ -247,11 +334,14 @@ export const importStarterCatalog = async () => {
   let skipped = 0;
 
   for (const product of initialProducts) {
-    const productRef = doc(db, 'products', product.id);
+    const productRef = doc(
+      adminProductsCollection,
+      product.id,
+    );
 
     if (
-      existingNames.has(product.name.trim().toLowerCase()) ||
-      (await getDoc(productRef)).exists()
+      existingNames.has(product.name.trim().toLowerCase())
+      || (await getDoc(productRef)).exists()
     ) {
       skipped += 1;
       continue;
@@ -270,40 +360,50 @@ export const importStarterCatalog = async () => {
     const file = new File(
       [blob],
       `${product.id}.png`,
-      { type: blob.type || 'image/png' }
+      { type: blob.type || 'image/png' },
     );
 
-    const image = await uploadProductImage(product.id, file);
+    const image = await uploadProductImage(
+      product.id,
+      file,
+      adminSession.storage,
+    );
 
     let wasImported;
 
     try {
-      wasImported = await runTransaction(db, async (transaction) => {
-        const currentProduct = await transaction.get(productRef);
+      wasImported = await runTransaction(
+        adminSession.database,
+        async (transaction) => {
+          const currentProduct = await transaction.get(productRef);
 
-        if (currentProduct.exists()) {
-          return false;
-        }
+          if (currentProduct.exists()) {
+            return false;
+          }
 
-        transaction.set(productRef, {
-          id: product.id,
-          name: product.name,
-          price: product.price,
-          description: product.description,
-          category: product.category,
-          stock: product.stock,
-          brand: '',
-          status: 'active',
-          ...image,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
+          transaction.set(productRef, {
+            id: product.id,
+            name: product.name,
+            price: product.price,
+            description: product.description,
+            category: product.category,
+            stock: product.stock,
+            brand: '',
+            status: 'active',
+            ...image,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
 
-        return true;
-      });
+          return true;
+        },
+      );
     } catch (error) {
       try {
-        await deleteProductImage(image.imagePath);
+        await deleteProductImage(
+          image.imagePath,
+          adminSession.storage,
+        );
       } catch (cleanupError) {
         throw new AggregateError(
           [error, cleanupError],
@@ -316,12 +416,19 @@ export const importStarterCatalog = async () => {
     }
 
     if (!wasImported) {
-      await deleteProductImage(image.imagePath);
+      await deleteProductImage(
+        image.imagePath,
+        adminSession.storage,
+      );
+
       skipped += 1;
       continue;
     }
 
-    existingNames.add(product.name.trim().toLowerCase());
+    existingNames.add(
+      product.name.trim().toLowerCase(),
+    );
+
     imported += 1;
   }
 

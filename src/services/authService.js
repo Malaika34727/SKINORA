@@ -126,6 +126,55 @@ export const signInCustomer = async (email, password) => {
 
   const user = credential.user;
 
+  // ======================================
+  // BLOCK ADMIN ACCOUNTS FROM CUSTOMER UI
+  // ======================================
+
+  // Super Admin must never log in as a customer.
+  if (
+    user.uid === SUPER_ADMIN_UID ||
+    normalizeEmail(user.email) === SUPER_ADMIN_EMAIL
+  ) {
+    await signOut(auth);
+
+    throw new Error(
+      'Administrator accounts cannot log in through the customer portal.'
+    );
+  }
+
+  // Check whether this account is a Sub Admin.
+  try {
+    const adminStatus = await getAdminStatus(user);
+
+    if (adminStatus.isAdmin) {
+      await signOut(auth);
+
+      throw new Error(
+        'Sub Admin accounts cannot log in through the customer portal.'
+      );
+    }
+  } catch (error) {
+    // Do not swallow our own admin rejection.
+    if (
+      error.message?.includes(
+        'cannot log in through the customer portal'
+      )
+    ) {
+      throw error;
+    }
+
+    // Normal customer accounts may not have permission to read
+    // administrator records. In that case, continue customer login.
+    console.warn(
+      'Admin role could not be checked during customer login:',
+      error
+    );
+  }
+
+  // ======================================
+  // CUSTOMER PROFILE
+  // ======================================
+
   try {
     const customerRef = doc(db, 'CREATEACCUSER', user.uid);
     const customerSnapshot = await getDoc(customerRef);
@@ -143,6 +192,10 @@ export const signInCustomer = async (email, password) => {
   } catch (error) {
     console.error('Customer profile check failed:', error);
   }
+
+  // ======================================
+  // LOGIN RECORD
+  // ======================================
 
   try {
     await addDoc(collection(db, 'LOGINUSER'), {
@@ -181,7 +234,10 @@ export const signOutCustomer = async () => {
 // GET ADMIN STATUS
 // ==========================================
 
-export const getAdminStatus = async (user) => {
+export const getAdminStatus = async (
+  user,
+  adminDatabase = db
+) => {
   if (!user) {
     return {
       isAdmin: false,
@@ -205,6 +261,7 @@ export const getAdminStatus = async (user) => {
 
     // ======================================
     // SUPER ADMIN VERIFICATION
+    // Always use Main Firestore
     // ======================================
 
     if (user.uid === SUPER_ADMIN_UID) {
@@ -244,10 +301,11 @@ export const getAdminStatus = async (user) => {
 
     // ======================================
     // SUB ADMIN VERIFICATION
+    // Use selected Firestore instance
     // ======================================
 
     const subAdminRef = doc(
-      db,
+      adminDatabase,
       'ADMIN',
       SUPER_ADMIN_UID,
       'SUBADMIN',
