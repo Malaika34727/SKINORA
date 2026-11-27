@@ -15,10 +15,10 @@ import {
 import './ManageSubAdmins.css';
 
 // ==========================================
-// PERMISSION OPTIONS
+// PRODUCT MANAGER PERMISSIONS
 // ==========================================
 
-const permissionOptions = [
+const productPermissionOptions = [
   { key: 'viewProducts', label: 'View Products' },
   { key: 'addProduct', label: 'Add Products' },
   { key: 'updateProduct', label: 'Update Products' },
@@ -26,7 +26,7 @@ const permissionOptions = [
   { key: 'importProducts', label: 'Import Products' },
 ];
 
-const defaultPermissions = {
+const defaultProductPermissions = {
   viewProducts: true,
   addProduct: true,
   updateProduct: true,
@@ -34,10 +34,61 @@ const defaultPermissions = {
   importProducts: false,
 };
 
+// ==========================================
+// ORDER MANAGER PERMISSIONS
+// ==========================================
+
+const orderPermissionOptions = [
+  { key: 'viewOrders', label: 'View Orders' },
+  { key: 'updateOrderStatus', label: 'Update Order Status' },
+  { key: 'verifyPayments', label: 'Verify Payments' },
+];
+
+const defaultOrderPermissions = {
+  viewOrders: false,
+  updateOrderStatus: false,
+  verifyPayments: false,
+};
+
+// ==========================================
+// ALL PERMISSIONS
+// ==========================================
+
+const defaultPermissions = {
+  ...defaultProductPermissions,
+  ...defaultOrderPermissions,
+};
+
 const emptyForm = {
   email: '',
   password: '',
   permissions: { ...defaultPermissions },
+};
+
+// ==========================================
+// PANEL LABEL HELPER
+// ==========================================
+
+const getAssignedPanels = (permissions = {}) => {
+  const panels = [];
+
+  const hasProductAccess = productPermissionOptions.some(
+    (permission) => permissions[permission.key] === true
+  );
+
+  const hasOrderAccess = orderPermissionOptions.some(
+    (permission) => permissions[permission.key] === true
+  );
+
+  if (hasProductAccess) {
+    panels.push('Product Manager');
+  }
+
+  if (hasOrderAccess) {
+    panels.push('Order Manager');
+  }
+
+  return panels.length ? panels.join(' + ') : 'No Panel Assigned';
 };
 
 // ==========================================
@@ -130,6 +181,15 @@ const ManageSubAdmins = () => {
       return;
     }
 
+    const hasAnyPermission = Object.values(
+      form.permissions
+    ).some((permission) => permission === true);
+
+    if (!hasAnyPermission) {
+      setError('Assign at least one panel permission.');
+      return;
+    }
+
     setCreating(true);
 
     try {
@@ -148,14 +208,12 @@ const ManageSubAdmins = () => {
       setSuccess(
         `Sub Admin account created for ${result.email}. Email verification has been requested.`
       );
-
     } catch (createError) {
       console.error('Sub Admin creation failed:', createError);
 
       setError(
         createError.message || 'Could not create Sub Admin account.'
       );
-
     } finally {
       setCreating(false);
     }
@@ -172,6 +230,7 @@ const ManageSubAdmins = () => {
           ? {
               ...admin,
               permissions: {
+                ...defaultPermissions,
                 ...admin.permissions,
                 [permission]: checked,
               },
@@ -183,7 +242,20 @@ const ManageSubAdmins = () => {
     setSuccess('');
   };
 
+  // ========================================
+  // SAVE PERMISSIONS
+  // ========================================
+
   const handleSavePermissions = async (admin) => {
+    const hasAnyPermission = Object.values(
+      admin.permissions || {}
+    ).some((permission) => permission === true);
+
+    if (!hasAnyPermission) {
+      setError('Assign at least one panel permission.');
+      return;
+    }
+
     setSavingUID(admin.uid);
     setError('');
     setSuccess('');
@@ -191,20 +263,21 @@ const ManageSubAdmins = () => {
     try {
       await updateSubAdminPermissions(
         admin.uid,
-        admin.permissions
+        {
+          ...defaultPermissions,
+          ...admin.permissions,
+        }
       );
 
       setSuccess(
         `Permissions updated for ${admin.email}.`
       );
-
     } catch (saveError) {
       setError(
         saveError.message || 'Could not update permissions.'
       );
 
       await loadSubAdmins();
-
     } finally {
       setSavingUID('');
     }
@@ -248,16 +321,48 @@ const ManageSubAdmins = () => {
           newStatus ? 'activated' : 'deactivated'
         }.`
       );
-
     } catch (statusError) {
       setError(
         statusError.message || 'Could not update account status.'
       );
-
     } finally {
       setSavingUID('');
     }
   };
+
+  // ========================================
+  // PERMISSION GROUP RENDERER
+  // ========================================
+
+  const renderPermissionGroup = (
+    title,
+    options,
+    permissions,
+    onChange,
+    disabled
+  ) => (
+    <div className="subadmin-permissions">
+      <h4>{title}</h4>
+
+      {options.map((permission) => (
+        <label key={permission.key}>
+          <input
+            type="checkbox"
+            checked={permissions?.[permission.key] === true}
+            disabled={disabled}
+            onChange={(event) =>
+              onChange(
+                permission.key,
+                event.target.checked
+              )
+            }
+          />
+
+          <span>{permission.label}</span>
+        </label>
+      ))}
+    </div>
+  );
 
   // ========================================
   // UI
@@ -342,7 +447,7 @@ const ManageSubAdmins = () => {
               <div className="subadmin-create-heading">
                 <h3>Create New Sub Admin</h3>
                 <p>
-                  Enter account details and assign product permissions.
+                  Enter account details and assign panel permissions.
                 </p>
               </div>
 
@@ -383,39 +488,35 @@ const ManageSubAdmins = () => {
                 </label>
 
                 <label>
-                  <span>Role</span>
+                  <span>Assigned Panels</span>
 
                   <input
                     type="text"
-                    value="Product Manager"
+                    value={getAssignedPanels(form.permissions)}
                     disabled
                     readOnly
                   />
                 </label>
 
-                <div className="subadmin-permissions">
-                  <h4>Assign Permissions</h4>
+                {/* PRODUCT MANAGER */}
 
-                  {permissionOptions.map((permission) => (
-                    <label key={permission.key}>
-                      <input
-                        type="checkbox"
-                        checked={
-                          form.permissions[permission.key] === true
-                        }
-                        disabled={creating}
-                        onChange={(event) =>
-                          handleCreatePermissionChange(
-                            permission.key,
-                            event.target.checked
-                          )
-                        }
-                      />
+                {renderPermissionGroup(
+                  'Product Manager Permissions',
+                  productPermissionOptions,
+                  form.permissions,
+                  handleCreatePermissionChange,
+                  creating
+                )}
 
-                      <span>{permission.label}</span>
-                    </label>
-                  ))}
-                </div>
+                {/* ORDER MANAGER */}
+
+                {renderPermissionGroup(
+                  'Order Manager Permissions',
+                  orderPermissionOptions,
+                  form.permissions,
+                  handleCreatePermissionChange,
+                  creating
+                )}
 
                 <div className="subadmin-card-actions">
                   <Button
@@ -473,7 +574,7 @@ const ManageSubAdmins = () => {
                     <div>
                       <h3>{admin.email}</h3>
                       <p>
-                        {admin.roleLabel || 'Product Manager'}
+                        {getAssignedPanels(admin.permissions)}
                       </p>
                     </div>
 
@@ -488,30 +589,41 @@ const ManageSubAdmins = () => {
                     </span>
                   </div>
 
-                  <div className="subadmin-permissions">
-                    <h4>Permissions</h4>
+                  {/* PRODUCT MANAGER PERMISSIONS */}
 
-                    {permissionOptions.map((permission) => (
-                      <label key={permission.key}>
-                        <input
-                          type="checkbox"
-                          checked={
-                            admin.permissions?.[permission.key] === true
-                          }
-                          disabled={savingUID === admin.uid}
-                          onChange={(event) =>
-                            handlePermissionChange(
-                              admin.uid,
-                              permission.key,
-                              event.target.checked
-                            )
-                          }
-                        />
+                  {renderPermissionGroup(
+                    'Product Manager Permissions',
+                    productPermissionOptions,
+                    {
+                      ...defaultPermissions,
+                      ...admin.permissions,
+                    },
+                    (permission, checked) =>
+                      handlePermissionChange(
+                        admin.uid,
+                        permission,
+                        checked
+                      ),
+                    savingUID === admin.uid
+                  )}
 
-                        <span>{permission.label}</span>
-                      </label>
-                    ))}
-                  </div>
+                  {/* ORDER MANAGER PERMISSIONS */}
+
+                  {renderPermissionGroup(
+                    'Order Manager Permissions',
+                    orderPermissionOptions,
+                    {
+                      ...defaultPermissions,
+                      ...admin.permissions,
+                    },
+                    (permission, checked) =>
+                      handlePermissionChange(
+                        admin.uid,
+                        permission,
+                        checked
+                      ),
+                    savingUID === admin.uid
+                  )}
 
                   <div className="subadmin-card-actions">
                     <Button

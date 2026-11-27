@@ -1,5 +1,6 @@
 
 import { useEffect } from 'react';
+
 import {
   BrowserRouter,
   Link,
@@ -58,7 +59,10 @@ const StorefrontLayout = () => (
 
     <main id="main-content" className="page-content">
       <Routes>
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route
+          path="/"
+          element={<Navigate to="/login" replace />}
+        />
 
         <Route path="/login" element={<Login />} />
 
@@ -217,19 +221,45 @@ function App() {
 
           <Routes>
 
-            {/* SECRET ADMIN LOGIN URL */}
+            {/* ==================================
+                ADMIN LOGIN ROUTES
+            ================================== */}
 
             <Route
               path="/skinora-admin"
               element={<AdminLogin />}
             />
 
-            {/* OLD ADMIN LOGIN URL REDIRECT */}
+            <Route
+              path="/skinora-admin/super-admin"
+              element={
+                <AdminLogin initialRole="admin" />
+              }
+            />
+
+            <Route
+              path="/skinora-admin/product-manager"
+              element={
+                <AdminLogin initialRole="productManager" />
+              }
+            />
+
+            <Route
+              path="/skinora-admin/order-manager"
+              element={
+                <AdminLogin initialRole="orderManager" />
+              }
+            />
+
+            {/* OLD ADMIN LOGIN URL */}
 
             <Route
               path="/admin/login"
               element={
-                <Navigate to="/skinora-admin" replace />
+                <Navigate
+                  to="/skinora-admin"
+                  replace
+                />
               }
             />
 
@@ -310,7 +340,8 @@ function App() {
             />
 
             {/* ==================================
-                OTHER SUPER ADMIN ONLY PAGES
+                CATEGORIES
+                SUPER ADMIN ONLY
             ================================== */}
 
             <Route
@@ -322,14 +353,24 @@ function App() {
               }
             />
 
+            {/* ==================================
+                ORDERS
+                SUPER ADMIN + ORDER MANAGER
+            ================================== */}
+
             <Route
               path="/admin/orders"
               element={
-                <AdminRoute>
+                <AdminRoute requiredPermission="viewOrders">
                   <Orders />
                 </AdminRoute>
               }
             />
+
+            {/* ==================================
+                CUSTOMERS
+                SUPER ADMIN ONLY
+            ================================== */}
 
             <Route
               path="/admin/customers"
@@ -340,6 +381,11 @@ function App() {
               }
             />
 
+            {/* ==================================
+                MESSAGES
+                SUPER ADMIN ONLY
+            ================================== */}
+
             <Route
               path="/admin/messages"
               element={
@@ -349,6 +395,11 @@ function App() {
               }
             />
 
+            {/* ==================================
+                NOTIFICATIONS
+                SUPER ADMIN ONLY
+            ================================== */}
+
             <Route
               path="/admin/notifications"
               element={
@@ -357,6 +408,11 @@ function App() {
                 </AdminRoute>
               }
             />
+
+            {/* ==================================
+                SETTINGS
+                SUPER ADMIN ONLY
+            ================================== */}
 
             <Route
               path="/admin/settings"

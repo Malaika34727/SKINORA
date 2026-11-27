@@ -1,180 +1,438 @@
 
-import { useEffect, useMemo, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+
 import { onAuthStateChanged } from 'firebase/auth';
 
-import { auth, secondaryAuth, db, secondaryDb } from '../firebase';
+import {
+  auth,
+  superAdminAuth,
+  secondaryAuth,
+  db,
+  secondaryDb,
+} from '../firebase';
+
 import { getAdminStatus } from '../services/authService';
 import { AuthContext } from './AuthContextValue';
 
 const SUPER_ADMIN_UID = 'sDbSHVhgrmcPfLv0PJP2QDfLKFp1';
 
+const ACTIVE_PANEL_KEY = 'skinora_active_admin_panel';
+
+const VALID_PANELS = [
+  'superAdmin',
+  'productManager',
+  'orderManager',
+];
+
+const PANEL_PERMISSIONS = {
+  productManager: [
+    'viewProducts',
+    'addProduct',
+    'updateProduct',
+    'deleteProduct',
+    'importProducts',
+  ],
+
+  orderManager: [
+    'viewOrders',
+    'updateOrderStatus',
+    'verifyPayments',
+  ],
+};
+
+// ==========================================
+// GET SAVED PANEL
+// ==========================================
+
+const getSavedPanel = () => {
+  try {
+    const saved = sessionStorage.getItem(ACTIVE_PANEL_KEY);
+
+    return VALID_PANELS.includes(saved) ? saved : null;
+  } catch {
+    return null;
+  }
+};
+
+// ==========================================
+// AUTH PROVIDER
+// ==========================================
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+
   const [customerUser, setCustomerUser] = useState(null);
 
   const [isAdmin, setIsAdmin] = useState(false);
+
   const [role, setRole] = useState(null);
+
   const [permissions, setPermissions] = useState({});
 
+  const [selectedPanelState, setSelectedPanelState] = useState(
+    getSavedPanel
+  );
+
   const [loading, setLoading] = useState(true);
+
   const [error, setError] = useState('');
 
+  const selectedPanel = selectedPanelState;
+
+  // ==========================================
+  // SELECT ADMIN PANEL
+  // ==========================================
+
+  const setSelectedPanel = useCallback((panel) => {
+    const validPanel = VALID_PANELS.includes(panel)
+      ? panel
+      : null;
+
+    try {
+      if (validPanel) {
+        sessionStorage.setItem(
+          ACTIVE_PANEL_KEY,
+          validPanel
+        );
+      } else {
+        sessionStorage.removeItem(ACTIVE_PANEL_KEY);
+      }
+    } catch (storageError) {
+      console.error(
+        'Panel storage error:',
+        storageError
+      );
+    }
+
+    // Only reset verification when the panel changes.
+    if (validPanel !== selectedPanelState) {
+      // Start loading immediately, before useEffect runs.
+      setLoading(true);
+
+      setError('');
+
+      // Clear the previous panel's admin state.
+      setUser(null);
+
+      setIsAdmin(false);
+
+      setRole(null);
+
+      setPermissions({});
+    }
+
+    setSelectedPanelState(validPanel);
+  }, [selectedPanelState]);
+
+  // ==========================================
+  // AUTHENTICATION LISTENERS
+  // ==========================================
+
   useEffect(() => {
-    let mainUser = null;
+    let customerAuthUser = null;
+
+    let superAdminUser = null;
+
     let subAdminUser = null;
 
-    let mainReady = false;
-    let secondaryReady = false;
+    let customerReady = false;
+
+    let superAdminReady = false;
+
+    let subAdminReady = false;
+
+    let active = true;
 
     let checkId = 0;
 
+    // ======================================
+    // CLEAR ADMIN STATE
+    // ======================================
+
+    const clearAdminState = () => {
+      setUser(null);
+
+      setIsAdmin(false);
+
+      setRole(null);
+
+      setPermissions({});
+    };
+
+    // ======================================
+    // VERIFY ALL SESSIONS
+    // ======================================
+
     const verifySessions = async () => {
-      if (!mainReady || !secondaryReady) return;
+      if (
+        !active ||
+        !customerReady ||
+        !superAdminReady ||
+        !subAdminReady
+      ) {
+        return;
+      }
 
       const currentCheck = ++checkId;
 
-      // =====================================
-      // CUSTOMER SESSION - MAIN AUTH
-      // =====================================
+      setLoading(true);
 
-      const isSuperAdmin =
-        mainUser?.uid === SUPER_ADMIN_UID;
+      setError('');
 
-      const verifiedCustomer =
-        mainUser && !isSuperAdmin ? mainUser : null;
+      // Customer session remains independent.
+      setCustomerUser(
+        customerAuthUser?.uid === SUPER_ADMIN_UID
+          ? null
+          : customerAuthUser
+      );
 
-      setCustomerUser(verifiedCustomer);
+      // ======================================
+      // NO ADMIN PANEL SELECTED
+      // ======================================
 
-      // =====================================
-      // SUPER ADMIN - MAIN AUTH
-      // =====================================
+      if (!selectedPanel) {
+        clearAdminState();
 
-      if (isSuperAdmin) {
+        if (active && currentCheck === checkId) {
+          setLoading(false);
+        }
+
+        return;
+      }
+
+      // ======================================
+      // SUPER ADMIN VERIFICATION
+      // ======================================
+
+      if (selectedPanel === 'superAdmin') {
         try {
-          const mainStatus = await getAdminStatus(
-            mainUser,
+          if (
+            !superAdminUser ||
+            superAdminUser.uid !== SUPER_ADMIN_UID
+          ) {
+            throw new Error(
+              'Super Admin session is not active.'
+            );
+          }
+
+          const status = await getAdminStatus(
+            superAdminUser,
             db
           );
 
-          if (currentCheck !== checkId) return;
-
-          if (mainStatus.isAdmin) {
-            setUser(mainUser);
-            setIsAdmin(true);
-            setRole(mainStatus.role || 'admin');
-            setPermissions(mainStatus.permissions || {});
-            setError('');
-            setLoading(false);
+          if (!active || currentCheck !== checkId) {
             return;
           }
-        } catch (mainError) {
-          console.error(
-            'Main Admin verification failed:',
-            mainError
+
+          if (!status?.isAdmin) {
+            throw new Error(
+              status?.error ||
+              'Super Admin access could not be verified.'
+            );
+          }
+
+          setUser(superAdminUser);
+
+          setIsAdmin(true);
+
+          setRole('admin');
+
+          setPermissions(status.permissions || {});
+
+          setError('');
+        } catch (verificationError) {
+          if (!active || currentCheck !== checkId) {
+            return;
+          }
+
+          clearAdminState();
+
+          setError(
+            verificationError.message ||
+            'Super Admin verification failed.'
           );
         }
+
+        if (active && currentCheck === checkId) {
+          setLoading(false);
+        }
+
+        return;
       }
 
-      // =====================================
-      // SUB ADMIN - SECONDARY AUTH
-      // =====================================
+      // ======================================
+      // SUB ADMIN VERIFICATION
+      // ======================================
 
-      if (subAdminUser) {
+      if (
+        selectedPanel === 'productManager' ||
+        selectedPanel === 'orderManager'
+      ) {
         try {
-          const subAdminStatus = await getAdminStatus(
+          if (!subAdminUser) {
+            throw new Error(
+              'Sub Admin session is not active.'
+            );
+          }
+
+          const status = await getAdminStatus(
             subAdminUser,
             secondaryDb
           );
 
-          if (currentCheck !== checkId) return;
-
-          if (subAdminStatus.isAdmin) {
-            setUser(subAdminUser);
-            setIsAdmin(true);
-            setRole(subAdminStatus.role || null);
-            setPermissions(
-              subAdminStatus.permissions || {}
-            );
-            setError('');
-            setLoading(false);
+          if (!active || currentCheck !== checkId) {
             return;
           }
-        } catch (secondaryError) {
-          console.error(
-            'Sub Admin verification failed:',
-            secondaryError
+
+          if (!status?.isAdmin) {
+            throw new Error(
+              status?.error ||
+              'Sub Admin access could not be verified.'
+            );
+          }
+
+          const userPermissions = status.permissions || {};
+
+          const allowedPermissions =
+            PANEL_PERMISSIONS[selectedPanel];
+
+          const hasPanelAccess = allowedPermissions.some(
+            (permission) =>
+              userPermissions[permission] === true
+          );
+
+          if (!hasPanelAccess) {
+            throw new Error(
+              'Your account does not have permission for this panel.'
+            );
+          }
+
+          if (
+            selectedPanel === 'orderManager' &&
+            userPermissions.viewOrders !== true
+          ) {
+            throw new Error(
+              'You do not have permission to view orders.'
+            );
+          }
+
+          setUser(subAdminUser);
+
+          setIsAdmin(true);
+
+          setRole(status.role || 'subadmin');
+
+          setPermissions(userPermissions);
+
+          setError('');
+        } catch (verificationError) {
+          if (!active || currentCheck !== checkId) {
+            return;
+          }
+
+          clearAdminState();
+
+          setError(
+            verificationError.message ||
+            'Sub Admin verification failed.'
           );
         }
+
+        if (active && currentCheck === checkId) {
+          setLoading(false);
+        }
       }
-
-      // =====================================
-      // NO ADMIN SESSION
-      // =====================================
-
-      if (currentCheck !== checkId) return;
-
-      setUser(mainUser || null);
-      setIsAdmin(false);
-      setRole(null);
-      setPermissions({});
-      setError('');
-      setLoading(false);
     };
 
-    // =====================================
-    // MAIN AUTH LISTENER
-    // =====================================
+    // ==========================================
+    // CUSTOMER AUTH LISTENER
+    // ==========================================
 
-    const unsubscribeMain = onAuthStateChanged(
+    const unsubscribeCustomer = onAuthStateChanged(
       auth,
       (nextUser) => {
-        mainUser = nextUser;
-        mainReady = true;
+        customerAuthUser = nextUser;
 
-        setLoading(true);
+        customerReady = true;
+
         verifySessions();
       }
     );
 
-    // =====================================
-    // SECONDARY AUTH LISTENER
-    // =====================================
+    // ==========================================
+    // SUPER ADMIN AUTH LISTENER
+    // ==========================================
 
-    const unsubscribeSecondary = onAuthStateChanged(
+    const unsubscribeSuperAdmin = onAuthStateChanged(
+      superAdminAuth,
+      (nextUser) => {
+        superAdminUser = nextUser;
+
+        superAdminReady = true;
+
+        verifySessions();
+      }
+    );
+
+    // ==========================================
+    // SUB ADMIN AUTH LISTENER
+    // ==========================================
+
+    const unsubscribeSubAdmin = onAuthStateChanged(
       secondaryAuth,
       (nextUser) => {
         subAdminUser = nextUser;
-        secondaryReady = true;
 
-        setLoading(true);
+        subAdminReady = true;
+
         verifySessions();
       }
     );
 
-    // =====================================
+    // ==========================================
     // CLEANUP
-    // =====================================
+    // ==========================================
 
     return () => {
+      active = false;
+
       checkId++;
 
-      unsubscribeMain();
-      unsubscribeSecondary();
-    };
-  }, []);
+      unsubscribeCustomer();
 
-  // =====================================
-  // AUTH CONTEXT VALUE
-  // =====================================
+      unsubscribeSuperAdmin();
+
+      unsubscribeSubAdmin();
+    };
+  }, [selectedPanel]);
+
+  // ==========================================
+  // CONTEXT VALUE
+  // ==========================================
 
   const value = useMemo(
     () => ({
       user,
+
       customerUser,
+
       isAdmin,
+
       role,
+
       permissions,
+
+      selectedPanel,
+
+      setSelectedPanel,
+
       loading,
+
       error,
     }),
     [
@@ -183,10 +441,16 @@ export const AuthProvider = ({ children }) => {
       isAdmin,
       role,
       permissions,
+      selectedPanel,
+      setSelectedPanel,
       loading,
       error,
     ]
   );
+
+  // ==========================================
+  // PROVIDER
+  // ==========================================
 
   return (
     <AuthContext.Provider value={value}>

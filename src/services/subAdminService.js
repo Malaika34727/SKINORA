@@ -50,7 +50,24 @@ export const orderManagerPermissions = {
 };
 
 // ==========================================
+// ALL AVAILABLE PERMISSIONS
+// ==========================================
+
+const allPermissions = {
+  viewProducts: false,
+  addProduct: false,
+  updateProduct: false,
+  deleteProduct: false,
+  importProducts: false,
+
+  viewOrders: false,
+  updateOrderStatus: false,
+  verifyPayments: false,
+};
+
+// ==========================================
 // ROLE CONFIGURATION
+// Legacy role fields are preserved
 // ==========================================
 
 const roleConfiguration = {
@@ -58,6 +75,7 @@ const roleConfiguration = {
     label: 'Product Manager',
     permissions: productManagerPermissions,
   },
+
   orderManager: {
     label: 'Order Manager',
     permissions: orderManagerPermissions,
@@ -70,28 +88,68 @@ const roleConfiguration = {
 
 const verifySuperAdmin = () => {
   if (auth.currentUser?.uid !== SUPER_ADMIN_UID) {
-    throw new Error('Only the Super Admin can manage Sub Admins.');
+    throw new Error(
+      'Only the Super Admin can manage Sub Admins.'
+    );
   }
 };
 
 // ==========================================
 // NORMALIZE PERMISSIONS
+// Keeps only recognized permission keys
 // ==========================================
 
-const normalizePermissions = (role, permissions = {}) => {
-  const configuration = roleConfiguration[role];
-
-  if (!configuration) {
-    throw new Error('Invalid Sub Admin role.');
-  }
-
+const normalizePermissions = (permissions = {}) => {
   const normalized = {};
 
-  Object.keys(configuration.permissions).forEach((permission) => {
-    normalized[permission] = permissions[permission] === true;
+  Object.keys(allPermissions).forEach((permission) => {
+    normalized[permission] =
+      permissions[permission] === true;
   });
 
   return normalized;
+};
+
+// ==========================================
+// GET ASSIGNED PANELS
+// ==========================================
+
+export const getAssignedPanels = (permissions = {}) => {
+  const panels = [];
+
+  const productPermissionKeys = [
+    'viewProducts',
+    'addProduct',
+    'updateProduct',
+    'deleteProduct',
+    'importProducts',
+  ];
+
+  const orderPermissionKeys = [
+    'viewOrders',
+    'updateOrderStatus',
+    'verifyPayments',
+  ];
+
+  const hasProductPermissions =
+    productPermissionKeys.some(
+      (key) => permissions[key] === true
+    );
+
+  const hasOrderPermissions =
+    orderPermissionKeys.some(
+      (key) => permissions[key] === true
+    );
+
+  if (hasProductPermissions) {
+    panels.push('Product Manager');
+  }
+
+  if (hasOrderPermissions) {
+    panels.push('Order Manager');
+  }
+
+  return panels;
 };
 
 // ==========================================
@@ -109,11 +167,15 @@ export const createSubAdmin = async ({
   const normalizedEmail = email?.trim().toLowerCase();
 
   if (!normalizedEmail) {
-    throw new Error('Please enter a Sub Admin email.');
+    throw new Error(
+      'Please enter a Sub Admin email.'
+    );
   }
 
   if (!password || password.length < 6) {
-    throw new Error('Password must contain at least 6 characters.');
+    throw new Error(
+      'Password must contain at least 6 characters.'
+    );
   }
 
   const configuration = roleConfiguration[role];
@@ -122,10 +184,23 @@ export const createSubAdmin = async ({
     throw new Error('Invalid Sub Admin role.');
   }
 
-  const safePermissions = normalizePermissions(
-    role,
-    permissions ?? configuration.permissions
+  // Role defaults + user-selected permissions
+  // Both panel permissions can coexist
+  const safePermissions = normalizePermissions({
+    ...allPermissions,
+    ...configuration.permissions,
+    ...permissions,
+  });
+
+  const assignedPanels = getAssignedPanels(
+    safePermissions
   );
+
+  if (assignedPanels.length === 0) {
+    throw new Error(
+      'Please assign at least one panel permission.'
+    );
+  }
 
   let credential = null;
 
@@ -149,9 +224,15 @@ export const createSubAdmin = async ({
     await setDoc(subAdminRef, {
       uid: subAdmin.uid,
       email: normalizedEmail,
+
+      // Legacy role retained for compatibility
       role,
       roleLabel: configuration.label,
+
+      // Combined permissions
       permissions: safePermissions,
+
+      // Account information
       isActive: true,
       createdBy: SUPER_ADMIN_UID,
       createdAt: serverTimestamp(),
@@ -164,17 +245,24 @@ export const createSubAdmin = async ({
       await sendEmailVerification(subAdmin);
     } catch (emailError) {
       verificationSent = false;
-      console.error('Verification email could not be sent:', emailError);
+
+      console.error(
+        'Verification email could not be sent:',
+        emailError
+      );
     }
 
     return {
       uid: subAdmin.uid,
       email: normalizedEmail,
       role,
+      permissions: safePermissions,
+      assignedPanels,
       verificationSent,
     };
 
   } catch (error) {
+    // Cleanup partially created account
     if (
       credential?.user &&
       secondaryAuth.currentUser?.uid === credential.user.uid
@@ -182,7 +270,10 @@ export const createSubAdmin = async ({
       try {
         await deleteUser(credential.user);
       } catch (cleanupError) {
-        console.error('Sub Admin account cleanup failed:', cleanupError);
+        console.error(
+          'Sub Admin account cleanup failed:',
+          cleanupError
+        );
       }
     }
 
@@ -190,7 +281,10 @@ export const createSubAdmin = async ({
 
   } finally {
     await signOut(secondaryAuth).catch((error) => {
-      console.error('Secondary authentication sign-out failed:', error);
+      console.error(
+        'Secondary authentication sign-out failed:',
+        error
+      );
     });
   }
 };
@@ -238,12 +332,30 @@ export const updateSubAdminPermissions = async (
     throw new Error('Sub Admin not found.');
   }
 
-  const role = snapshot.data().role;
+  // Preserve existing assigned permissions
+  const existingPermissions =
+    snapshot.data().permissions || {};
 
+  // Merge new permission selections
+  const mergedPermissions = {
+    ...existingPermissions,
+    ...permissions,
+  };
+
+  // Normalize to valid permission keys only
   const updatedPermissions = normalizePermissions(
-    role,
-    permissions
+    mergedPermissions
   );
+
+  const assignedPanels = getAssignedPanels(
+    updatedPermissions
+  );
+
+  if (assignedPanels.length === 0) {
+    throw new Error(
+      'A Sub Admin must have at least one panel assigned.'
+    );
+  }
 
   await updateDoc(subAdminRef, {
     permissions: updatedPermissions,
@@ -278,6 +390,12 @@ export const updateSubAdminStatus = async (
     'SUBADMIN',
     subAdminUID
   );
+
+  const snapshot = await getDoc(subAdminRef);
+
+  if (!snapshot.exists()) {
+    throw new Error('Sub Admin not found.');
+  }
 
   await updateDoc(subAdminRef, {
     isActive,

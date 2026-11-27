@@ -1,4 +1,5 @@
-import { useState } from 'react';
+
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import {
@@ -6,6 +7,8 @@ import {
   signOut,
   reload,
   getIdToken,
+  setPersistence,
+  browserSessionPersistence,
 } from 'firebase/auth';
 
 import {
@@ -15,42 +18,93 @@ import {
 
 import Button from '../Components/Button';
 import { logoImage } from '../data/products';
-import { auth, secondaryAuth, db, secondaryDb } from '../firebase';
+
+import {
+  superAdminAuth,
+  secondaryAuth,
+  db,
+  secondaryDb,
+} from '../firebase';
+
+import { useAuth } from '../context/AuthContextValue';
 
 import './AdminLogin.css';
 
 import { Eye, EyeOff } from 'lucide-react';
 
 const ADMIN_EMAIL = 'dbestmalaika@gmail.com';
+
 const SUPER_ADMIN_UID = 'sDbSHVhgrmcPfLv0PJP2QDfLKFp1';
 
-const AdminLogin = () => {
-  const [loginType, setLoginType] = useState('admin');
+const VALID_ROLES = [
+  'admin',
+  'productManager',
+  'orderManager',
+];
 
-  const [email, setEmail] = useState(ADMIN_EMAIL);
+const AdminLogin = ({ initialRole = 'admin' }) => {
+  const [selectedRole, setSelectedRole] = useState(
+    VALID_ROLES.includes(initialRole)
+      ? initialRole
+      : 'admin'
+  );
+
+  const [email, setEmail] = useState(
+    initialRole === 'admin' ? ADMIN_EMAIL : ''
+  );
+
   const [password, setPassword] = useState('');
 
   const [showPassword, setShowPassword] = useState(false);
 
   const [error, setError] = useState('');
+
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
 
+  const { setSelectedPanel } = useAuth();
+
   // ==========================================
-  // LOGIN TYPE
+  // SYNC ROLE WITH URL
   // ==========================================
 
-  const handleLoginTypeChange = (type) => {
-    setLoginType(type);
-    setEmail(type === 'admin' ? ADMIN_EMAIL : '');
+  useEffect(() => {
+    const role = VALID_ROLES.includes(initialRole)
+      ? initialRole
+      : 'admin';
+
+    setSelectedRole(role);
+
+    setEmail(role === 'admin' ? ADMIN_EMAIL : '');
+
     setPassword('');
+
     setError('');
+
+    setShowPassword(false);
+  }, [initialRole]);
+
+  // ==========================================
+  // ROLE DROPDOWN
+  // ==========================================
+
+  const handleRoleChange = (role) => {
+    if (!VALID_ROLES.includes(role)) return;
+
+    setSelectedRole(role);
+
+    setEmail(role === 'admin' ? ADMIN_EMAIL : '');
+
+    setPassword('');
+
+    setError('');
+
     setShowPassword(false);
   };
 
   // ==========================================
-  // SUPER ADMIN LOGIN
+  // SUPER ADMIN LOGIN VERIFICATION
   // ==========================================
 
   const handleSuperAdminLogin = async (user) => {
@@ -91,11 +145,15 @@ const AdminLogin = () => {
       );
     }
 
-    navigate('/admin/dashboard', { replace: true });
+    setSelectedPanel('superAdmin');
+
+    navigate('/admin/dashboard', {
+      replace: true,
+    });
   };
 
   // ==========================================
-  // SUB ADMIN LOGIN
+  // SUB ADMIN LOGIN VERIFICATION
   // ==========================================
 
   const handleSubAdminLogin = async (user) => {
@@ -121,7 +179,6 @@ const AdminLogin = () => {
       subAdminData.uid === user.uid &&
       subAdminData.email?.trim().toLowerCase() ===
         user.email?.trim().toLowerCase() &&
-      subAdminData.role === 'productManager' &&
       subAdminData.isActive === true;
 
     if (!authorized) {
@@ -130,42 +187,91 @@ const AdminLogin = () => {
       );
     }
 
-    // Get assigned permissions
     const permissions = subAdminData.permissions || {};
 
-    // Redirect according to permissions
-    if (permissions.viewProducts === true) {
-      navigate('/admin/manage-products', {
+    // ==========================================
+    // PRODUCT MANAGER
+    // ==========================================
+
+    if (selectedRole === 'productManager') {
+      const hasProductAccess = [
+        'viewProducts',
+        'addProduct',
+        'updateProduct',
+        'deleteProduct',
+        'importProducts',
+      ].some(
+        (permission) => permissions[permission] === true
+      );
+
+      if (!hasProductAccess) {
+        throw new Error(
+          'You do not have Product Manager permissions.'
+        );
+      }
+
+      let destination = null;
+
+      if (permissions.viewProducts === true) {
+        destination = '/admin/manage-products';
+      } else if (permissions.addProduct === true) {
+        destination = '/admin/add-product';
+      } else {
+        throw new Error(
+          'Your Product Manager account has no accessible starting page.'
+        );
+      }
+
+      setSelectedPanel('productManager');
+
+      navigate(destination, {
         replace: true,
       });
+
       return;
     }
 
-    if (permissions.addProduct === true) {
-      navigate('/admin/add-product', {
+    // ==========================================
+    // ORDER MANAGER
+    // ==========================================
+
+    if (selectedRole === 'orderManager') {
+      if (permissions.viewOrders !== true) {
+        throw new Error(
+          'You do not have permission to view orders.'
+        );
+      }
+
+      setSelectedPanel('orderManager');
+
+      navigate('/admin/orders', {
         replace: true,
       });
+
       return;
     }
 
-    throw new Error(
-      'Your account has no product access permissions. Contact the Super Admin.'
-    );
+    throw new Error('Invalid role selection.');
   };
 
   // ==========================================
-  // LOGIN
+  // LOGIN SUBMIT
   // ==========================================
 
   const handleSubmit = async (event) => {
     event.preventDefault();
 
     setError('');
+
     setLoading(true);
 
-    // Select separate Firebase Auth instance
-    const selectedAuth =
-      loginType === 'admin' ? auth : secondaryAuth;
+    const isSuperAdmin = selectedRole === 'admin';
+
+    const selectedAuth = isSuperAdmin
+      ? superAdminAuth
+      : secondaryAuth;
+
+    let signedInUser = null;
 
     try {
       const normalizedEmail = email.trim().toLowerCase();
@@ -177,7 +283,7 @@ const AdminLogin = () => {
       }
 
       if (
-        loginType === 'admin' &&
+        isSuperAdmin &&
         normalizedEmail !== ADMIN_EMAIL
       ) {
         throw new Error(
@@ -185,45 +291,64 @@ const AdminLogin = () => {
         );
       }
 
-      // Sign in with selected authentication
+      // ==========================================
+      // TAB-SPECIFIC SESSION PERSISTENCE
+      // ==========================================
+
+      await setPersistence(
+        selectedAuth,
+        browserSessionPersistence
+      );
+
+      // ==========================================
+      // FIREBASE SIGN IN
+      // ==========================================
+
       const credential = await signInWithEmailAndPassword(
         selectedAuth,
         normalizedEmail,
         password
       );
 
-      const user = credential.user;
+      signedInUser = credential.user;
 
-      // Refresh email verification status
-      await reload(user);
+      await reload(signedInUser);
 
-      if (!user.emailVerified) {
-        await signOut(selectedAuth);
-
+      if (!signedInUser.emailVerified) {
         throw new Error(
           'Please verify your email first. Check your Gmail inbox.'
         );
       }
 
-      // Refresh Firebase ID token
-      await getIdToken(user, true);
+      await getIdToken(signedInUser, true);
 
-      // Select login pathway
-      if (loginType === 'admin') {
-        await handleSuperAdminLogin(user);
+      // ==========================================
+      // ROLE AUTHORIZATION
+      // ==========================================
+
+      if (isSuperAdmin) {
+        await handleSuperAdminLogin(signedInUser);
       } else {
-        await handleSubAdminLogin(user);
+        await handleSubAdminLogin(signedInUser);
       }
-
     } catch (authError) {
       console.error(
         'Admin authentication error:',
         authError
       );
 
-      // Sign out only the selected authentication session
-      if (selectedAuth.currentUser) {
-        await signOut(selectedAuth).catch(() => {});
+      // Sign out only the account authenticated by this attempt.
+
+      if (
+        signedInUser &&
+        selectedAuth.currentUser?.uid === signedInUser.uid
+      ) {
+        await signOut(selectedAuth).catch((signOutError) => {
+          console.error(
+            'Could not clean up failed admin login:',
+            signOutError
+          );
+        });
       }
 
       switch (authError.code) {
@@ -242,6 +367,7 @@ const AdminLogin = () => {
           break;
 
         case 'permission-denied':
+        case 'firestore/permission-denied':
           setError(
             'Firestore permission denied. Please check your security rules.'
           );
@@ -252,20 +378,21 @@ const AdminLogin = () => {
             authError.message || 'Authentication failed.'
           );
       }
-
     } finally {
       setLoading(false);
     }
   };
 
   // ==========================================
-  // UI
+  // LOGIN UI
   // ==========================================
 
   return (
     <div className="page-shell admin-login-page">
       <div className="container admin-login-shell">
         <div className="admin-login-panel">
+
+          {/* BRAND */}
 
           <div className="admin-login-brand">
             <img
@@ -275,51 +402,56 @@ const AdminLogin = () => {
             />
 
             <div>
-              <p className="eyebrow">Protected access</p>
+              <p className="eyebrow">
+                Protected access
+              </p>
+
               <h1>Admin Portal</h1>
             </div>
           </div>
 
-          {/* LOGIN TYPE SELECTION */}
-
-          <div className="admin-login-type">
-            <button
-              type="button"
-              className={
-                loginType === 'admin' ? 'active' : ''
-              }
-              onClick={() =>
-                handleLoginTypeChange('admin')
-              }
-              disabled={loading}
-            >
-              Super Admin
-            </button>
-
-            <button
-              type="button"
-              className={
-                loginType === 'subadmin' ? 'active' : ''
-              }
-              onClick={() =>
-                handleLoginTypeChange('subadmin')
-              }
-              disabled={loading}
-            >
-              Sub Admin
-            </button>
-          </div>
+          {/* LOGIN FORM */}
 
           <form
             onSubmit={handleSubmit}
             className="admin-login-form"
           >
+            {/* ROLE */}
+
+            <label>
+              <span>Select your role</span>
+
+              <select
+                value={selectedRole}
+                onChange={(event) =>
+                  handleRoleChange(event.target.value)
+                }
+                disabled={loading}
+                required
+              >
+                <option value="admin">
+                  Super Admin
+                </option>
+
+                <option value="productManager">
+                  Product Manager
+                </option>
+
+                <option value="orderManager">
+                  Order Manager
+                </option>
+              </select>
+            </label>
+
+            {/* EMAIL */}
 
             <label>
               <span>
-                {loginType === 'admin'
+                {selectedRole === 'admin'
                   ? 'Super Admin email'
-                  : 'Sub Admin email'}
+                  : selectedRole === 'productManager'
+                    ? 'Product Manager email'
+                    : 'Order Manager email'}
               </span>
 
               <input
@@ -332,19 +464,19 @@ const AdminLogin = () => {
                 autoComplete="username"
                 required
                 disabled={
-                  loading || loginType === 'admin'
+                  loading || selectedRole === 'admin'
                 }
               />
             </label>
+
+            {/* PASSWORD */}
 
             <label>
               <span>Password</span>
 
               <div className="admin-password-wrapper">
                 <input
-                  type={
-                    showPassword ? 'text' : 'password'
-                  }
+                  type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(event) =>
                     setPassword(event.target.value)
@@ -377,6 +509,8 @@ const AdminLogin = () => {
               </div>
             </label>
 
+            {/* ERROR */}
+
             {error && (
               <p
                 className="admin-auth-error"
@@ -386,6 +520,8 @@ const AdminLogin = () => {
               </p>
             )}
 
+            {/* LOGIN BUTTON */}
+
             <Button
               type="submit"
               variant="primary"
@@ -394,15 +530,20 @@ const AdminLogin = () => {
             >
               {loading
                 ? 'Please wait...'
-                : loginType === 'admin'
+                : selectedRole === 'admin'
                   ? 'Super Admin Login'
-                  : 'Sub Admin Login'}
+                  : selectedRole === 'productManager'
+                    ? 'Product Manager Login'
+                    : 'Order Manager Login'}
             </Button>
-
           </form>
 
+          {/* FOOTER */}
+
           <div className="admin-login-footer">
-            <Link to="/">Return to store</Link>
+            <Link to="/">
+              Return to store
+            </Link>
           </div>
 
         </div>

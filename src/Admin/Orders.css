@@ -1,3 +1,8 @@
+
+/* ==========================================
+   ORDERS TABLE
+========================================== */
+
 .orders-table {
   min-width: 860px;
 }
@@ -12,4 +17,72 @@
   background: rgba(121, 177, 120, 0.12);
   color: #295d35;
   font-weight: 600;
+}
+
+/* ==========================================
+   ORDER MANAGER - SEPARATE LAYOUT
+========================================== */
+
+.admin-shell.order-manager-shell {
+  display: block;
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* Remove sidebar space completely */
+.admin-main-panel.order-manager-main {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  margin: 0;
+  flex: 1;
+}
+
+/* Order manager content */
+.order-manager-main .admin-panel-content {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+}
+
+/* Table container */
+.order-manager-main .admin-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* Keep the orders table readable on smaller screens */
+.order-manager-main .orders-table {
+  width: 100%;
+  min-width: 860px;
+}
+
+/* ==========================================
+   ORDER MANAGER RESPONSIVE
+========================================== */
+
+@media (max-width: 768px) {
+  .order-manager-main .admin-panel-content {
+    padding: 16px;
+  }
+
+  .order-manager-main .section-heading h2 {
+    font-size: 1.5rem;
+  }
+
+  .order-manager-main .table-toolbar {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .order-manager-main .table-toolbar input,
+  .order-manager-main .table-toolbar select {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .order-manager-main .admin-table-wrap {
+    overflow-x: auto;
+  }
 }

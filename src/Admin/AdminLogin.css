@@ -337,3 +337,29 @@
     min-height: 54px;
   }
 }
+
+/* Role dropdown */
+.admin-login-form select {
+  width: 100%;
+  min-height: 60px;
+  padding: 0 18px;
+  border: 1px solid #e4dfdb;
+  border-radius: 18px;
+  background: #fff;
+  color: #352b27;
+  font: inherit;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.admin-login-form select:focus {
+  border-color: #b17c69;
+  box-shadow: 0 0 0 3px rgba(177, 124, 105, 0.12);
+}
+
+.admin-login-form select:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+

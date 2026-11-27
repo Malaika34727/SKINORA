@@ -21,7 +21,8 @@ import {
 
 import { auth, db } from '../firebase';
 
-const normalizeEmail = (email = '') => email.trim().toLowerCase();
+const normalizeEmail = (email = '') =>
+  email.trim().toLowerCase();
 
 const SUPER_ADMIN_UID = 'sDbSHVhgrmcPfLv0PJP2QDfLKFp1';
 
@@ -47,13 +48,16 @@ const rolePermissions = {
   },
 };
 
-const getUserPermissions = (role, permissions = {}) => {
-  const allowedPermissions = rolePermissions[role];
+// ==========================================
+// GET ALL ASSIGNED PERMISSIONS
+// ==========================================
 
-  if (!allowedPermissions) return {};
+const getUserPermissions = (permissions = {}) => {
+  const allPermissionKeys = Object.values(rolePermissions)
+    .flatMap((group) => Object.keys(group));
 
   return Object.fromEntries(
-    Object.keys(allowedPermissions).map((key) => [
+    allPermissionKeys.map((key) => [
       key,
       permissions[key] === true,
     ])
@@ -105,7 +109,6 @@ export const createCustomerAccount = async ({
     }
 
     return user;
-
   } catch (error) {
     throw new Error(
       `Account was created, but Firestore registration failed: ${error.message}`
@@ -126,11 +129,8 @@ export const signInCustomer = async (email, password) => {
 
   const user = credential.user;
 
-  // ======================================
-  // BLOCK ADMIN ACCOUNTS FROM CUSTOMER UI
-  // ======================================
+  // Block Super Admin from customer portal
 
-  // Super Admin must never log in as a customer.
   if (
     user.uid === SUPER_ADMIN_UID ||
     normalizeEmail(user.email) === SUPER_ADMIN_EMAIL
@@ -142,32 +142,15 @@ export const signInCustomer = async (email, password) => {
     );
   }
 
-  // Check whether this account is a Sub Admin.
-  try {
-    const adminStatus = await getAdminStatus(user);
+  // Check whether this account is a Sub Admin
 
-    if (adminStatus.isAdmin) {
-      await signOut(auth);
+  const adminStatus = await getAdminStatus(user);
 
-      throw new Error(
-        'Sub Admin accounts cannot log in through the customer portal.'
-      );
-    }
-  } catch (error) {
-    // Do not swallow our own admin rejection.
-    if (
-      error.message?.includes(
-        'cannot log in through the customer portal'
-      )
-    ) {
-      throw error;
-    }
+  if (adminStatus.isAdmin) {
+    await signOut(auth);
 
-    // Normal customer accounts may not have permission to read
-    // administrator records. In that case, continue customer login.
-    console.warn(
-      'Admin role could not be checked during customer login:',
-      error
+    throw new Error(
+      'Sub Admin accounts cannot log in through the customer portal.'
     );
   }
 
@@ -223,7 +206,7 @@ export const resetCustomerPassword = async (email) => {
 };
 
 // ==========================================
-// LOGOUT
+// LOGOUT CUSTOMER
 // ==========================================
 
 export const signOutCustomer = async () => {
@@ -238,25 +221,22 @@ export const getAdminStatus = async (
   user,
   adminDatabase = db
 ) => {
+  const denied = (source = 'none') => ({
+    isAdmin: false,
+    role: null,
+    permissions: {},
+    source,
+  });
+
   if (!user) {
-    return {
-      isAdmin: false,
-      role: null,
-      permissions: {},
-      source: 'none',
-    };
+    return denied();
   }
 
   try {
     await user.reload();
 
     if (!user.emailVerified) {
-      return {
-        isAdmin: false,
-        role: null,
-        permissions: {},
-        source: 'unverified',
-      };
+      return denied('unverified');
     }
 
     // ======================================
@@ -274,12 +254,7 @@ export const getAdminStatus = async (
       const snapshot = await getDoc(adminRef);
 
       if (!snapshot.exists()) {
-        return {
-          isAdmin: false,
-          role: null,
-          permissions: {},
-          source: 'none',
-        };
+        return denied();
       }
 
       const data = snapshot.data();
@@ -291,9 +266,13 @@ export const getAdminStatus = async (
         data.role === 'admin' &&
         data.isActive === true;
 
+      if (!authorized) {
+        return denied('super-admin');
+      }
+
       return {
-        isAdmin: authorized,
-        role: authorized ? 'admin' : null,
+        isAdmin: true,
+        role: 'admin',
         permissions: {},
         source: 'super-admin',
       };
@@ -315,53 +294,43 @@ export const getAdminStatus = async (
     const subAdminSnapshot = await getDoc(subAdminRef);
 
     if (!subAdminSnapshot.exists()) {
-      return {
-        isAdmin: false,
-        role: null,
-        permissions: {},
-        source: 'none',
-      };
+      return denied();
     }
 
     const subAdminData = subAdminSnapshot.data();
 
-    const role = subAdminData.role;
+    const subAdminRole = subAdminData.role;
 
     const authorized =
       subAdminData.uid === user.uid &&
-      normalizeEmail(user.email) === normalizeEmail(subAdminData.email) &&
-      Object.hasOwn(rolePermissions, role) &&
+      normalizeEmail(user.email) ===
+        normalizeEmail(subAdminData.email) &&
+      Object.hasOwn(rolePermissions, subAdminRole) &&
       subAdminData.isActive === true;
 
     if (!authorized) {
-      return {
-        isAdmin: false,
-        role: null,
-        permissions: {},
-        source: 'sub-admin',
-      };
+      return denied('sub-admin');
     }
 
+    // Read permissions from both groups.
+    // Selected panel controls which permissions are usable.
+
     const permissions = getUserPermissions(
-      role,
-      subAdminData.permissions
+      subAdminData.permissions || {}
     );
 
     return {
       isAdmin: true,
-      role,
+      role: subAdminRole,
       permissions,
       source: 'sub-admin',
     };
-
   } catch (error) {
     console.error('Admin status check failed:', error);
 
     return {
-      isAdmin: false,
-      role: null,
-      permissions: {},
-      source: 'error',
+      ...denied('error'),
+      error: error.message || 'Admin verification failed.',
     };
   }
 };

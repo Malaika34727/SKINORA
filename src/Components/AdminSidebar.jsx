@@ -19,11 +19,13 @@ const navItems = [
     label: 'Add Product',
     to: '/admin/add-product',
     permission: 'addProduct',
+    panel: 'productManager',
   },
   {
     label: 'Manage Products',
     to: '/admin/manage-products',
     permission: 'viewProducts',
+    panel: 'productManager',
   },
   {
     label: 'Categories',
@@ -33,7 +35,8 @@ const navItems = [
   {
     label: 'Orders',
     to: '/admin/orders',
-    superAdminOnly: true,
+    permission: 'viewOrders',
+    panel: 'orderManager',
   },
   {
     label: 'Customers',
@@ -55,24 +58,35 @@ const navItems = [
     to: '/admin/settings',
     superAdminOnly: true,
   },
-
 ];
 
 const AdminSidebar = () => {
-  const { role, permissions = {} } = useAuth();
+  const {
+    role,
+    permissions = {},
+    selectedPanel,
+  } = useAuth();
 
-  const isSuperAdmin = role === 'admin';
+  const isSuperAdmin =
+    role === 'admin' && selectedPanel === 'superAdmin';
 
   const visibleNavItems = navItems.filter((item) => {
-    // Super Admin can see everything.
     if (isSuperAdmin) return true;
 
-    // Dashboard and other restricted pages are Super Admin only.
     if (item.superAdminOnly) return false;
 
-    // Sub Admin sees only permitted links.
-    return item.permission && permissions[item.permission] === true;
+    if (item.panel !== selectedPanel) return false;
+
+    return permissions[item.permission] === true;
   });
+
+  const panelLabel = isSuperAdmin
+    ? 'Super Admin'
+    : selectedPanel === 'orderManager'
+      ? 'Order Manager'
+      : selectedPanel === 'productManager'
+        ? 'Product Manager'
+        : 'Sub Admin';
 
   return (
     <aside className="admin-sidebar">
@@ -81,7 +95,7 @@ const AdminSidebar = () => {
 
         <div>
           <h3>SKINORA</h3>
-          <p>Admin Panel</p>
+          <p>{panelLabel}</p>
         </div>
       </div>
 

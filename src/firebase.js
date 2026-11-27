@@ -1,8 +1,13 @@
 
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
+import {
+  initializeApp,
+  getApps,
+  getApp,
+} from 'firebase/app';
+
+import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: "AIzaSyB4wkSP2luX7HX1H7uYC2h9eNNfrkbtjko",
@@ -13,22 +18,36 @@ const firebaseConfig = {
   appId: "1:597804317596:web:baf77f193440373703a659"
 };
 
-// Main Firebase App
-const app = getApps().length
-  ? getApp()
-  : initializeApp(firebaseConfig);
+// =====================================
+// MAIN APP — CUSTOMER AUTHENTICATION
+// =====================================
 
-// Main Firebase Services
+const app = getApps().find(
+  (item) => item.name === '[DEFAULT]'
+) || initializeApp(firebaseConfig);
+
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
-// Secondary Firebase App
-const secondaryApp =
-  getApps().find((item) => item.name === "SecondaryApp") ||
-  initializeApp(firebaseConfig, "SecondaryApp");
+// =====================================
+// SUPER ADMIN — SEPARATE AUTH SESSION
+// =====================================
 
-// Secondary Firebase Services
+const superAdminApp = getApps().find(
+  (item) => item.name === 'SuperAdminApp'
+) || initializeApp(firebaseConfig, 'SuperAdminApp');
+
+export const superAdminAuth = getAuth(superAdminApp);
+
+// =====================================
+// SUB ADMIN — SEPARATE AUTH SESSION
+// =====================================
+
+const secondaryApp = getApps().find(
+  (item) => item.name === 'SecondaryApp'
+) || initializeApp(firebaseConfig, 'SecondaryApp');
+
 export const secondaryAuth = getAuth(secondaryApp);
 export const secondaryDb = getFirestore(secondaryApp);
 export const secondaryStorage = getStorage(secondaryApp);
