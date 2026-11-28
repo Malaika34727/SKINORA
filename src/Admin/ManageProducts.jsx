@@ -169,11 +169,14 @@ const ManageProducts = () => {
           <AdminNavbar />
 
           <div className="admin-panel-content">
-            <h2>Access Restricted</h2>
-            <p>
-              You do not have permission to view products.
-              Please contact your Super Admin.
-            </p>
+            <div className="products-access-card">
+              <span className="products-eyebrow">Restricted Area</span>
+              <h2>Access Restricted</h2>
+              <p>
+                You do not have permission to view products.
+                Please contact your Super Admin.
+              </p>
+            </div>
           </div>
         </main>
       </div>
@@ -187,185 +190,276 @@ const ManageProducts = () => {
       <main className="admin-main-panel">
         <AdminNavbar />
 
-        <div className="admin-panel-content">
-          <div className="table-toolbar">
+        <div className="admin-panel-content manage-products-page">
+
+          <div className="manage-products-heading">
             <div>
-              <p className="eyebrow">Inventory</p>
-              <h2>Manage products</h2>
+              <p className="products-eyebrow">SKINORA / INVENTORY</p>
+              <h2>Manage Products</h2>
+              <p className="products-heading-description">
+                Organize your product catalog, monitor stock and manage
+                your store inventory.
+              </p>
             </div>
-
-            <p role="status">
-              {message || location.state?.success}
-            </p>
-
-            {error && <p role="alert">{error}</p>}
-
-            <input
-              type="search"
-              value={searchTerm}
-              onChange={(event) =>
-                setSearchTerm(event.target.value)
-              }
-              placeholder="Search products"
-              aria-label="Search products"
-            />
-
-            <select
-              value={categoryFilter}
-              onChange={(event) =>
-                setCategoryFilter(event.target.value)
-              }
-              aria-label="Filter products by category"
-            >
-              <option value="All">All categories</option>
-
-              {[
-                ...new Set(
-                  products
-                    .map((product) => product.category)
-                    .filter(Boolean)
-                ),
-              ].map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={statusFilter}
-              onChange={(event) =>
-                setStatusFilter(event.target.value)
-              }
-              aria-label="Filter products by status"
-            >
-              <option value="All">All statuses</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-
-            <select
-              value={sortBy}
-              onChange={(event) => setSortBy(event.target.value)}
-              aria-label="Sort products"
-            >
-              <option value="name">Name</option>
-              <option value="price-asc">Price: Low to High</option>
-              <option value="price-desc">Price: High to Low</option>
-              <option value="stock">Stock: Low to High</option>
-            </select>
 
             {canImportProducts && (
               <button
                 type="button"
-                className="admin-link-button"
+                className="products-import-button"
                 onClick={handleImportCatalog}
                 disabled={importing}
               >
-                {importing
-                  ? 'Importing…'
-                  : 'Import starter catalog'}
+                <span className="import-button-icon">↓</span>
+                {importing ? 'Importing...' : 'Import Starter Catalog'}
               </button>
             )}
           </div>
 
-          {productsError && (
-            <p role="alert">{productsError}</p>
+          {(message || location.state?.success) && (
+            <div className="products-feedback products-success" role="status">
+              <span className="feedback-symbol">✓</span>
+              {message || location.state?.success}
+            </div>
           )}
 
-          <div className="admin-table-wrap">
-            <table className="admin-products-table">
-              <thead>
-                <tr>
-                  <th>Image</th>
-                  <th>ID</th>
-                  <th>Name</th>
-                  <th>Brand</th>
-                  <th>Price</th>
-                  <th>Category</th>
-                  <th>Stock</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
+          {error && (
+            <div className="products-feedback products-error" role="alert">
+              <span className="feedback-symbol">!</span>
+              {error}
+            </div>
+          )}
 
-              <tbody>
-                {productsLoading && (
+          <section className="products-filter-panel">
+            <div className="products-filter-heading">
+              <div>
+                <span className="products-section-label">CATALOG TOOLS</span>
+                <h3>Find Products</h3>
+              </div>
+
+              <span className="products-result-count">
+                {filteredProducts.length} products
+              </span>
+            </div>
+
+            <div className="products-filter-controls">
+              <div className="products-search-field">
+                <span className="search-symbol">⌕</span>
+                <input
+                  type="search"
+                  value={searchTerm}
+                  onChange={(event) =>
+                    setSearchTerm(event.target.value)
+                  }
+                  placeholder="Search by name, brand or category..."
+                  aria-label="Search products"
+                />
+              </div>
+
+              <select
+                value={categoryFilter}
+                onChange={(event) =>
+                  setCategoryFilter(event.target.value)
+                }
+                aria-label="Filter products by category"
+              >
+                <option value="All">All categories</option>
+
+                {[
+                  ...new Set(
+                    products
+                      .map((product) => product.category)
+                      .filter(Boolean)
+                  ),
+                ].map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={statusFilter}
+                onChange={(event) =>
+                  setStatusFilter(event.target.value)
+                }
+                aria-label="Filter products by status"
+              >
+                <option value="All">All statuses</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+
+              <select
+                value={sortBy}
+                onChange={(event) => setSortBy(event.target.value)}
+                aria-label="Sort products"
+              >
+                <option value="name">Sort: Name</option>
+                <option value="price-asc">Price: Low to High</option>
+                <option value="price-desc">Price: High to Low</option>
+                <option value="stock">Stock: Low to High</option>
+              </select>
+            </div>
+          </section>
+
+          {productsError && (
+            <div className="products-feedback products-error" role="alert">
+              {productsError}
+            </div>
+          )}
+
+          <section className="products-table-section">
+            <div className="products-table-heading">
+              <div>
+                <span className="products-section-label">YOUR COLLECTION</span>
+                <h3>Product Inventory</h3>
+              </div>
+              <span className="products-table-note">
+                Manage your store products
+              </span>
+            </div>
+
+            <div className="admin-table-wrap">
+              <table className="admin-products-table">
+                <thead>
                   <tr>
-                    <td colSpan="9">Loading products…</td>
+                    <th>Product</th>
+                    <th>Product ID</th>
+                    <th>Brand</th>
+                    <th>Price</th>
+                    <th>Category</th>
+                    <th>Stock</th>
+                    <th>Status</th>
+                    <th>Actions</th>
                   </tr>
-                )}
+                </thead>
 
-                {!productsLoading &&
-                  filteredProducts.length === 0 && (
+                <tbody>
+                  {productsLoading && (
                     <tr>
-                      <td colSpan="9">
-                        No products found. Add a product to get started.
+                      <td colSpan="8" className="products-table-message">
+                        <span className="products-loader" />
+                        Loading products...
                       </td>
                     </tr>
                   )}
 
-                {filteredProducts.map((product) => (
-                  <tr key={product.id}>
-                    <td>
-                      <div className="table-product-thumb">
-                        <img
-                          src={product.imageUrl}
-                          alt={product.name}
-                        />
-                      </div>
-                    </td>
+                  {!productsLoading &&
+                    filteredProducts.length === 0 && (
+                      <tr>
+                        <td colSpan="8" className="products-table-message">
+                          <div className="products-empty-state">
+                            <span className="empty-state-icon">◇</span>
+                            <strong>No products found</strong>
+                            <span>
+                              Try changing your search or filter settings.
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
 
-                    <td>{product.id}</td>
-                    <td>{product.name}</td>
-                    <td>{product.brand || '—'}</td>
+                  {filteredProducts.map((product) => {
+                    const productStatus = product.status || 'active';
 
-                    <td>
-                      {product.discountPrice !== undefined &&
-                      product.discountPrice < product.price ? (
-                        <>
-                          PKR {product.discountPrice}{' '}
-                          <del>PKR {product.price}</del>
-                        </>
-                      ) : (
-                        `PKR ${product.price}`
-                      )}
-                    </td>
+                    return (
+                      <tr key={product.id}>
+                        <td>
+                          <div className="table-product-info">
+                            <div className="table-product-thumb">
+                              <img
+                                src={product.imageUrl}
+                                alt={product.name}
+                              />
+                            </div>
+                            <span className="table-product-name">
+                              {product.name}
+                            </span>
+                          </div>
+                        </td>
 
-                    <td>{product.category}</td>
-                    <td>{product.stock}</td>
-                    <td>{product.status || 'active'}</td>
+                        <td>
+                          <span className="product-id">
+                            {product.id}
+                          </span>
+                        </td>
 
-                    <td>
-                      <div className="table-actions">
-                        {canUpdateProducts && (
-                          <Link
-                            to={`/admin/edit-product/${product.id}`}
+                        <td>{product.brand || '—'}</td>
+
+                        <td>
+                          <div className="product-price">
+                            {product.discountPrice !== undefined &&
+                            product.discountPrice < product.price ? (
+                              <>
+                                <strong>
+                                  PKR {product.discountPrice}
+                                </strong>
+                                <del>PKR {product.price}</del>
+                              </>
+                            ) : (
+                              <strong>PKR {product.price}</strong>
+                            )}
+                          </div>
+                        </td>
+
+                        <td>{product.category}</td>
+
+                        <td>
+                          <span className="product-stock">
+                            {product.stock}
+                          </span>
+                        </td>
+
+                        <td>
+                          <span
+                            className={`product-status ${
+                              productStatus === 'active'
+                                ? 'status-active'
+                                : 'status-inactive'
+                            }`}
                           >
-                            Edit
-                          </Link>
-                        )}
+                            <span className="status-dot" />
+                            {productStatus}
+                          </span>
+                        </td>
 
-                        {canDeleteProducts && (
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(product)}
-                          >
-                            Delete
-                          </button>
-                        )}
+                        <td>
+                          <div className="table-actions">
+                            {canUpdateProducts && (
+                              <Link
+                                className="product-edit-action"
+                                to={`/admin/edit-product/${product.id}`}
+                              >
+                                Edit
+                              </Link>
+                            )}
 
-                        {!canUpdateProducts &&
-                          !canDeleteProducts && (
-                            <span>View only</span>
-                          )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                            {canDeleteProducts && (
+                              <button
+                                type="button"
+                                className="product-delete-action"
+                                onClick={() => handleDelete(product)}
+                              >
+                                Delete
+                              </button>
+                            )}
+
+                            {!canUpdateProducts &&
+                              !canDeleteProducts && (
+                                <span className="product-view-only">
+                                  View only
+                                </span>
+                              )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
         </div>
       </main>
     </div>

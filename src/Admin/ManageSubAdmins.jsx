@@ -14,10 +14,6 @@ import {
 
 import './ManageSubAdmins.css';
 
-// ==========================================
-// PRODUCT MANAGER PERMISSIONS
-// ==========================================
-
 const productPermissionOptions = [
   { key: 'viewProducts', label: 'View Products' },
   { key: 'addProduct', label: 'Add Products' },
@@ -34,10 +30,6 @@ const defaultProductPermissions = {
   importProducts: false,
 };
 
-// ==========================================
-// ORDER MANAGER PERMISSIONS
-// ==========================================
-
 const orderPermissionOptions = [
   { key: 'viewOrders', label: 'View Orders' },
   { key: 'updateOrderStatus', label: 'Update Order Status' },
@@ -50,10 +42,6 @@ const defaultOrderPermissions = {
   verifyPayments: false,
 };
 
-// ==========================================
-// ALL PERMISSIONS
-// ==========================================
-
 const defaultPermissions = {
   ...defaultProductPermissions,
   ...defaultOrderPermissions,
@@ -64,10 +52,6 @@ const emptyForm = {
   password: '',
   permissions: { ...defaultPermissions },
 };
-
-// ==========================================
-// PANEL LABEL HELPER
-// ==========================================
 
 const getAssignedPanels = (permissions = {}) => {
   const panels = [];
@@ -80,24 +64,25 @@ const getAssignedPanels = (permissions = {}) => {
     (permission) => permissions[permission.key] === true
   );
 
-  if (hasProductAccess) {
-    panels.push('Product Manager');
-  }
-
-  if (hasOrderAccess) {
-    panels.push('Order Manager');
-  }
+  if (hasProductAccess) panels.push('Product Manager');
+  if (hasOrderAccess) panels.push('Order Manager');
 
   return panels.length ? panels.join(' + ') : 'No Panel Assigned';
 };
 
-// ==========================================
-// MANAGE SUB ADMINS
-// ==========================================
+const getInitials = (email = '') => {
+  const firstPart = email.split('@')[0] || 'SA';
+
+  return firstPart
+    .split(/[._-]/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('');
+};
 
 const ManageSubAdmins = () => {
   const [subAdmins, setSubAdmins] = useState([]);
-
   const [form, setForm] = useState(emptyForm);
   const [showCreateForm, setShowCreateForm] = useState(false);
 
@@ -108,9 +93,23 @@ const ManageSubAdmins = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // ========================================
-  // LOAD SUB ADMINS
-  // ========================================
+  const activeCount = subAdmins.filter(
+    (admin) => admin.isActive
+  ).length;
+
+  const inactiveCount = subAdmins.length - activeCount;
+
+  const productManagerCount = subAdmins.filter((admin) =>
+    productPermissionOptions.some(
+      (permission) => admin.permissions?.[permission.key] === true
+    )
+  ).length;
+
+  const orderManagerCount = subAdmins.filter((admin) =>
+    orderPermissionOptions.some(
+      (permission) => admin.permissions?.[permission.key] === true
+    )
+  ).length;
 
   const loadSubAdmins = async () => {
     setLoading(true);
@@ -120,9 +119,7 @@ const ManageSubAdmins = () => {
       const result = await getSubAdmins();
       setSubAdmins(result);
     } catch (loadError) {
-      setError(
-        loadError.message || 'Could not load Sub Admins.'
-      );
+      setError(loadError.message || 'Could not load Sub Admins.');
     } finally {
       setLoading(false);
     }
@@ -131,10 +128,6 @@ const ManageSubAdmins = () => {
   useEffect(() => {
     loadSubAdmins();
   }, []);
-
-  // ========================================
-  // FORM INPUT CHANGE
-  // ========================================
 
   const handleInputChange = (event) => {
     const { name, value } = event.target;
@@ -145,10 +138,6 @@ const ManageSubAdmins = () => {
     }));
   };
 
-  // ========================================
-  // CREATE FORM PERMISSION CHANGE
-  // ========================================
-
   const handleCreatePermissionChange = (permission, checked) => {
     setForm((current) => ({
       ...current,
@@ -158,10 +147,6 @@ const ManageSubAdmins = () => {
       },
     }));
   };
-
-  // ========================================
-  // CREATE SUB ADMIN
-  // ========================================
 
   const handleCreateSubAdmin = async (event) => {
     event.preventDefault();
@@ -219,10 +204,6 @@ const ManageSubAdmins = () => {
     }
   };
 
-  // ========================================
-  // EXISTING SUB ADMIN PERMISSIONS
-  // ========================================
-
   const handlePermissionChange = (uid, permission, checked) => {
     setSubAdmins((current) =>
       current.map((admin) =>
@@ -242,10 +223,6 @@ const ManageSubAdmins = () => {
     setSuccess('');
   };
 
-  // ========================================
-  // SAVE PERMISSIONS
-  // ========================================
-
   const handleSavePermissions = async (admin) => {
     const hasAnyPermission = Object.values(
       admin.permissions || {}
@@ -261,17 +238,12 @@ const ManageSubAdmins = () => {
     setSuccess('');
 
     try {
-      await updateSubAdminPermissions(
-        admin.uid,
-        {
-          ...defaultPermissions,
-          ...admin.permissions,
-        }
-      );
+      await updateSubAdminPermissions(admin.uid, {
+        ...defaultPermissions,
+        ...admin.permissions,
+      });
 
-      setSuccess(
-        `Permissions updated for ${admin.email}.`
-      );
+      setSuccess(`Permissions updated for ${admin.email}.`);
     } catch (saveError) {
       setError(
         saveError.message || 'Could not update permissions.'
@@ -282,10 +254,6 @@ const ManageSubAdmins = () => {
       setSavingUID('');
     }
   };
-
-  // ========================================
-  // ACTIVATE / DEACTIVATE
-  // ========================================
 
   const handleStatusChange = async (admin) => {
     const newStatus = !admin.isActive;
@@ -303,10 +271,7 @@ const ManageSubAdmins = () => {
     setSuccess('');
 
     try {
-      await updateSubAdminStatus(
-        admin.uid,
-        newStatus
-      );
+      await updateSubAdminStatus(admin.uid, newStatus);
 
       setSubAdmins((current) =>
         current.map((item) =>
@@ -330,10 +295,6 @@ const ManageSubAdmins = () => {
     }
   };
 
-  // ========================================
-  // PERMISSION GROUP RENDERER
-  // ========================================
-
   const renderPermissionGroup = (
     title,
     options,
@@ -344,29 +305,30 @@ const ManageSubAdmins = () => {
     <div className="subadmin-permissions">
       <h4>{title}</h4>
 
-      {options.map((permission) => (
-        <label key={permission.key}>
-          <input
-            type="checkbox"
-            checked={permissions?.[permission.key] === true}
-            disabled={disabled}
-            onChange={(event) =>
-              onChange(
-                permission.key,
-                event.target.checked
-              )
-            }
-          />
+      <div className="subadmin-permission-grid">
+        {options.map((permission) => (
+          <label
+            className="subadmin-permission-option"
+            key={permission.key}
+          >
+            <input
+              type="checkbox"
+              checked={permissions?.[permission.key] === true}
+              disabled={disabled}
+              onChange={(event) =>
+                onChange(permission.key, event.target.checked)
+              }
+            />
 
-          <span>{permission.label}</span>
-        </label>
-      ))}
+            <span className="custom-checkbox" />
+            <span className="permission-label">
+              {permission.label}
+            </span>
+          </label>
+        ))}
+      </div>
     </div>
   );
-
-  // ========================================
-  // UI
-  // ========================================
 
   return (
     <div className="admin-shell">
@@ -375,20 +337,85 @@ const ManageSubAdmins = () => {
       <main className="admin-main-panel">
         <AdminNavbar />
 
-        <div className="admin-panel-content">
+        <div className="admin-panel-content subadmin-page">
 
-          {/* PAGE HEADER */}
-
-          <div className="section-heading">
+          <div className="subadmin-page-heading">
             <div>
-              <p className="eyebrow">Administration</p>
-              <h2>Manage Sub Admins</h2>
-              <p>
-                Create accounts, manage permissions and control access.
+              <p className="subadmin-eyebrow">
+                SKINORA / ACCESS MANAGEMENT
+              </p>
+
+              <h1>Manage Sub Admins</h1>
+
+              <p className="subadmin-heading-description">
+                Manage your team, assign responsibilities and control
+                administrative access.
               </p>
             </div>
 
+            <div className="subadmin-heading-mark">
+              <span>♙</span>
+            </div>
+          </div>
+
+          {/* SUMMARY CARDS */}
+
+          <div className="subadmin-stats-grid">
+            <div className="subadmin-stat-card">
+              <div className="subadmin-stat-icon">♙</div>
+              <div className="subadmin-stat-content">
+                <p>Total Sub Admins</p>
+                <h3>{subAdmins.length}</h3>
+                <span>Registered accounts</span>
+              </div>
+            </div>
+
+            <div className="subadmin-stat-card">
+              <div className="subadmin-stat-icon active-icon">✓</div>
+              <div className="subadmin-stat-content">
+                <p>Active Accounts</p>
+                <h3>{activeCount}</h3>
+                <span>Currently enabled</span>
+              </div>
+            </div>
+
+            <div className="subadmin-stat-card">
+              <div className="subadmin-stat-icon inactive-icon">Ⅱ</div>
+              <div className="subadmin-stat-content">
+                <p>Inactive Accounts</p>
+                <h3>{inactiveCount}</h3>
+                <span>Currently disabled</span>
+              </div>
+            </div>
+
+            <div className="subadmin-stat-card">
+              <div className="subadmin-stat-icon manager-icon">✧</div>
+              <div className="subadmin-stat-content">
+                <p>Manager Assignments</p>
+                <h3>{productManagerCount + orderManagerCount}</h3>
+                <span>
+                  {productManagerCount} Product · {orderManagerCount} Order
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="subadmin-toolbar">
+            <div>
+              <p className="subadmin-toolbar-label">TEAM DIRECTORY</p>
+              <h2>Administrator Accounts</h2>
+            </div>
+
             <div className="subadmin-header-actions">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={loadSubAdmins}
+                disabled={loading || creating}
+              >
+                {loading ? 'Loading...' : '↻ Refresh'}
+              </Button>
+
               <Button
                 type="button"
                 variant="primary"
@@ -399,106 +426,81 @@ const ManageSubAdmins = () => {
                 }}
                 disabled={creating}
               >
-                {showCreateForm
-                  ? 'Close Form'
-                  : 'Create Sub Admin'}
-              </Button>
-
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={loadSubAdmins}
-                disabled={loading || creating}
-              >
-                {loading ? 'Loading...' : 'Refresh'}
+                {showCreateForm ? 'Close Form' : '+ Create Sub Admin'}
               </Button>
             </div>
           </div>
 
-          {/* ERROR */}
-
           {error && (
-            <p
-              role="alert"
-              className="subadmin-message error"
-            >
+            <div role="alert" className="subadmin-message error">
+              <span>!</span>
               {error}
-            </p>
+            </div>
           )}
-
-          {/* SUCCESS */}
 
           {success && (
-            <p
-              role="status"
-              className="subadmin-message success"
-            >
+            <div role="status" className="subadmin-message success">
+              <span>✓</span>
               {success}
-            </p>
+            </div>
           )}
-
-          {/* ==================================
-              CREATE SUB ADMIN FORM
-          ================================== */}
 
           {showCreateForm && (
             <section className="subadmin-create-section">
-
               <div className="subadmin-create-heading">
-                <h3>Create New Sub Admin</h3>
-                <p>
-                  Enter account details and assign panel permissions.
-                </p>
+                <div>
+                  <p className="subadmin-eyebrow">NEW TEAM MEMBER</p>
+                  <h2>Create Sub Admin Account</h2>
+                  <p>
+                    Enter account credentials and choose the required
+                    management permissions.
+                  </p>
+                </div>
+
+                <span className="create-section-mark">+</span>
               </div>
 
               <form
                 onSubmit={handleCreateSubAdmin}
                 className="subadmin-create-form"
               >
+                <div className="subadmin-create-fields">
+                  <label>
+                    <span>Sub Admin Gmail <i>*</i></span>
 
-                <label>
-                  <span>Sub Admin Gmail</span>
+                    <input
+                      type="email"
+                      name="email"
+                      value={form.email}
+                      onChange={handleInputChange}
+                      placeholder="Enter Sub Admin Gmail"
+                      autoComplete="off"
+                      required
+                      disabled={creating}
+                    />
+                  </label>
 
-                  <input
-                    type="email"
-                    name="email"
-                    value={form.email}
-                    onChange={handleInputChange}
-                    placeholder="Enter Sub Admin Gmail"
-                    autoComplete="off"
-                    required
-                    disabled={creating}
-                  />
-                </label>
+                  <label>
+                    <span>Password <i>*</i></span>
 
-                <label>
-                  <span>Password</span>
+                    <input
+                      type="password"
+                      name="password"
+                      value={form.password}
+                      onChange={handleInputChange}
+                      placeholder="Minimum 6 characters"
+                      autoComplete="new-password"
+                      minLength={6}
+                      required
+                      disabled={creating}
+                    />
+                  </label>
+                </div>
 
-                  <input
-                    type="password"
-                    name="password"
-                    value={form.password}
-                    onChange={handleInputChange}
-                    placeholder="Create password (minimum 6 characters)"
-                    autoComplete="new-password"
-                    minLength={6}
-                    required
-                    disabled={creating}
-                  />
-                </label>
-
-                <label>
-                  <span>Assigned Panels</span>
-
-                  <input
-                    type="text"
-                    value={getAssignedPanels(form.permissions)}
-                    disabled
-                    readOnly
-                  />
-                </label>
-
-                {/* PRODUCT MANAGER */}
+                <div className="subadmin-assignment-preview">
+                  <span>ASSIGNED PANELS</span>
+                  <strong>{getAssignedPanels(form.permissions)}</strong>
+                </div>
 
                 {renderPermissionGroup(
                   'Product Manager Permissions',
@@ -507,8 +509,6 @@ const ManageSubAdmins = () => {
                   handleCreatePermissionChange,
                   creating
                 )}
-
-                {/* ORDER MANAGER */}
 
                 {renderPermissionGroup(
                   'Order Manager Permissions',
@@ -524,9 +524,7 @@ const ManageSubAdmins = () => {
                     variant="primary"
                     disabled={creating}
                   >
-                    {creating
-                      ? 'Creating Account...'
-                      : 'Create Sub Admin'}
+                    {creating ? 'Creating Account...' : 'Create Sub Admin'}
                   </Button>
 
                   <Button
@@ -542,40 +540,56 @@ const ManageSubAdmins = () => {
                     Cancel
                   </Button>
                 </div>
-
               </form>
             </section>
           )}
 
-          {/* ==================================
-              SUB ADMIN LIST
-          ================================== */}
+          <div className="subadmin-list-heading">
+            <div>
+              <p className="subadmin-eyebrow">YOUR TEAM</p>
+              <h2>All Sub Admins</h2>
+            </div>
+
+            <span className="subadmin-count">
+              {subAdmins.length} {subAdmins.length === 1 ? 'ACCOUNT' : 'ACCOUNTS'}
+            </span>
+          </div>
 
           {loading ? (
-            <p>Loading Sub Admin accounts...</p>
+            <div className="subadmin-loading">
+              <span className="subadmin-spinner" />
+              <p>Loading Sub Admin accounts...</p>
+            </div>
           ) : subAdmins.length === 0 ? (
             <div className="subadmin-empty">
+              <div className="subadmin-empty-icon">♙</div>
               <h3>No Sub Admins Found</h3>
-
               <p>
                 Create your first Sub Admin account to get started.
               </p>
+
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => setShowCreateForm(true)}
+              >
+                + Create First Sub Admin
+              </Button>
             </div>
           ) : (
             <div className="subadmin-list">
-
               {subAdmins.map((admin) => (
-                <section
-                  className="subadmin-card"
-                  key={admin.uid}
-                >
-
+                <section className="subadmin-card" key={admin.uid}>
                   <div className="subadmin-card-header">
-                    <div>
-                      <h3>{admin.email}</h3>
-                      <p>
-                        {getAssignedPanels(admin.permissions)}
-                      </p>
+                    <div className="subadmin-identity">
+                      <div className="subadmin-avatar">
+                        {getInitials(admin.email)}
+                      </div>
+
+                      <div className="subadmin-identity-details">
+                        <h3>{admin.email}</h3>
+                        <p>{getAssignedPanels(admin.permissions)}</p>
+                      </div>
                     </div>
 
                     <span
@@ -585,11 +599,12 @@ const ManageSubAdmins = () => {
                           : 'subadmin-status inactive'
                       }
                     >
+                      <span />
                       {admin.isActive ? 'Active' : 'Inactive'}
                     </span>
                   </div>
 
-                  {/* PRODUCT MANAGER PERMISSIONS */}
+                  <div className="subadmin-card-divider" />
 
                   {renderPermissionGroup(
                     'Product Manager Permissions',
@@ -607,7 +622,7 @@ const ManageSubAdmins = () => {
                     savingUID === admin.uid
                   )}
 
-                  {/* ORDER MANAGER PERMISSIONS */}
+                  <div className="subadmin-permission-divider" />
 
                   {renderPermissionGroup(
                     'Order Manager Permissions',
@@ -630,9 +645,7 @@ const ManageSubAdmins = () => {
                       type="button"
                       variant="primary"
                       disabled={savingUID === admin.uid}
-                      onClick={() =>
-                        handleSavePermissions(admin)
-                      }
+                      onClick={() => handleSavePermissions(admin)}
                     >
                       {savingUID === admin.uid
                         ? 'Saving...'
@@ -643,22 +656,17 @@ const ManageSubAdmins = () => {
                       type="button"
                       variant="secondary"
                       disabled={savingUID === admin.uid}
-                      onClick={() =>
-                        handleStatusChange(admin)
-                      }
+                      onClick={() => handleStatusChange(admin)}
                     >
                       {admin.isActive
                         ? 'Deactivate Account'
                         : 'Activate Account'}
                     </Button>
                   </div>
-
                 </section>
               ))}
-
             </div>
           )}
-
         </div>
       </main>
     </div>

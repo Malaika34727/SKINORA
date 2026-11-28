@@ -13,6 +13,7 @@ import {
   superAdminAuth,
   secondaryAuth,
   db,
+  superAdminDb,
   secondaryDb,
 } from '../firebase';
 
@@ -109,14 +110,12 @@ export const AuthProvider = ({ children }) => {
       );
     }
 
-    // Only reset verification when the panel changes.
+    // Reset verification only when panel changes.
     if (validPanel !== selectedPanelState) {
-      // Start loading immediately, before useEffect runs.
       setLoading(true);
 
       setError('');
 
-      // Clear the previous panel's admin state.
       setUser(null);
 
       setIsAdmin(false);
@@ -220,9 +219,10 @@ export const AuthProvider = ({ children }) => {
             );
           }
 
+          // Verify Super Admin using SuperAdminApp Firestore.
           const status = await getAdminStatus(
             superAdminUser,
-            db
+            superAdminDb
           );
 
           if (!active || currentCheck !== checkId) {
@@ -280,6 +280,7 @@ export const AuthProvider = ({ children }) => {
             );
           }
 
+          // Sub Admin continues using SecondaryApp Firestore.
           const status = await getAdminStatus(
             subAdminUser,
             secondaryDb
@@ -418,21 +419,13 @@ export const AuthProvider = ({ children }) => {
   const value = useMemo(
     () => ({
       user,
-
       customerUser,
-
       isAdmin,
-
       role,
-
       permissions,
-
       selectedPanel,
-
       setSelectedPanel,
-
       loading,
-
       error,
     }),
     [

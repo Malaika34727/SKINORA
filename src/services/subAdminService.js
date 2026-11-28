@@ -16,12 +16,25 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 
-import { auth, db, secondaryAuth } from '../firebase';
+import {
+  superAdminAuth,
+  superAdminDb,
+  secondaryAuth,
+} from '../firebase';
+
+// ==========================================
+// SUPER ADMIN UID
+// ==========================================
 
 const SUPER_ADMIN_UID = 'sDbSHVhgrmcPfLv0PJP2QDfLKFp1';
 
+// ==========================================
+// SUB ADMIN COLLECTION
+// Use Super Admin Firestore instance
+// ==========================================
+
 const subAdminCollection = collection(
-  db,
+  superAdminDb,
   'ADMIN',
   SUPER_ADMIN_UID,
   'SUBADMIN'
@@ -67,7 +80,6 @@ const allPermissions = {
 
 // ==========================================
 // ROLE CONFIGURATION
-// Legacy role fields are preserved
 // ==========================================
 
 const roleConfiguration = {
@@ -87,7 +99,7 @@ const roleConfiguration = {
 // ==========================================
 
 const verifySuperAdmin = () => {
-  if (auth.currentUser?.uid !== SUPER_ADMIN_UID) {
+  if (superAdminAuth.currentUser?.uid !== SUPER_ADMIN_UID) {
     throw new Error(
       'Only the Super Admin can manage Sub Admins.'
     );
@@ -96,7 +108,6 @@ const verifySuperAdmin = () => {
 
 // ==========================================
 // NORMALIZE PERMISSIONS
-// Keeps only recognized permission keys
 // ==========================================
 
 const normalizePermissions = (permissions = {}) => {
@@ -167,9 +178,7 @@ export const createSubAdmin = async ({
   const normalizedEmail = email?.trim().toLowerCase();
 
   if (!normalizedEmail) {
-    throw new Error(
-      'Please enter a Sub Admin email.'
-    );
+    throw new Error('Please enter a Sub Admin email.');
   }
 
   if (!password || password.length < 6) {
@@ -184,8 +193,6 @@ export const createSubAdmin = async ({
     throw new Error('Invalid Sub Admin role.');
   }
 
-  // Role defaults + user-selected permissions
-  // Both panel permissions can coexist
   const safePermissions = normalizePermissions({
     ...allPermissions,
     ...configuration.permissions,
@@ -205,6 +212,7 @@ export const createSubAdmin = async ({
   let credential = null;
 
   try {
+    // Create Sub Admin account using separate Auth
     credential = await createUserWithEmailAndPassword(
       secondaryAuth,
       normalizedEmail,
@@ -213,8 +221,9 @@ export const createSubAdmin = async ({
 
     const subAdmin = credential.user;
 
+    // Save Sub Admin record using Super Admin Firestore
     const subAdminRef = doc(
-      db,
+      superAdminDb,
       'ADMIN',
       SUPER_ADMIN_UID,
       'SUBADMIN',
@@ -225,11 +234,11 @@ export const createSubAdmin = async ({
       uid: subAdmin.uid,
       email: normalizedEmail,
 
-      // Legacy role retained for compatibility
+      // Legacy role fields
       role,
       roleLabel: configuration.label,
 
-      // Combined permissions
+      // Permissions
       permissions: safePermissions,
 
       // Account information
@@ -260,7 +269,6 @@ export const createSubAdmin = async ({
       assignedPanels,
       verificationSent,
     };
-
   } catch (error) {
     // Cleanup partially created account
     if (
@@ -278,8 +286,8 @@ export const createSubAdmin = async ({
     }
 
     throw error;
-
   } finally {
+    // Sign out only Secondary Auth
     await signOut(secondaryAuth).catch((error) => {
       console.error(
         'Secondary authentication sign-out failed:',
@@ -319,7 +327,7 @@ export const updateSubAdminPermissions = async (
   }
 
   const subAdminRef = doc(
-    db,
+    superAdminDb,
     'ADMIN',
     SUPER_ADMIN_UID,
     'SUBADMIN',
@@ -332,17 +340,14 @@ export const updateSubAdminPermissions = async (
     throw new Error('Sub Admin not found.');
   }
 
-  // Preserve existing assigned permissions
   const existingPermissions =
     snapshot.data().permissions || {};
 
-  // Merge new permission selections
   const mergedPermissions = {
     ...existingPermissions,
     ...permissions,
   };
 
-  // Normalize to valid permission keys only
   const updatedPermissions = normalizePermissions(
     mergedPermissions
   );
@@ -384,7 +389,7 @@ export const updateSubAdminStatus = async (
   }
 
   const subAdminRef = doc(
-    db,
+    superAdminDb,
     'ADMIN',
     SUPER_ADMIN_UID,
     'SUBADMIN',

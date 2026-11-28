@@ -35,7 +35,6 @@ const defaultCategories = [
 
 const AddProduct = () => {
   const { addProduct, categories } = useStore();
-
   const { role, permissions = {}, loading: authLoading } = useAuth();
 
   const navigate = useNavigate();
@@ -47,7 +46,6 @@ const AddProduct = () => {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
-  // Super Admin has all permissions.
   const isSuperAdmin = role === 'admin';
 
   const canAddProduct =
@@ -68,7 +66,6 @@ const AddProduct = () => {
     };
   }, [previewUrl]);
 
-  // IMAGE SELECTION
   const handleImageChange = (event) => {
     const file = event.target.files?.[0];
 
@@ -80,14 +77,12 @@ const AddProduct = () => {
       setError('');
       setImageFile(file);
       setPreviewUrl(URL.createObjectURL(file));
-
     } catch (validationError) {
       event.target.value = '';
       setError(validationError.message);
     }
   };
 
-  // FORM INPUT
   const handleInputChange = (event) => {
     const { name, value } = event.target;
 
@@ -97,7 +92,6 @@ const AddProduct = () => {
     }));
   };
 
-  // SAVE PRODUCT
   const handleSubmit = async (event) => {
     event.preventDefault();
 
@@ -170,18 +164,15 @@ const AddProduct = () => {
           success: 'Product saved successfully.',
         },
       });
-
     } catch (saveError) {
       setError(
         saveError.message || 'The product could not be saved.'
       );
-
     } finally {
       setSaving(false);
     }
   };
 
-  // AUTH LOADING
   if (authLoading) {
     return (
       <div className="admin-shell">
@@ -190,15 +181,17 @@ const AddProduct = () => {
         <main className="admin-main-panel">
           <AdminNavbar />
 
-          <div className="admin-panel-content">
-            <p>Verifying administrator permissions...</p>
+          <div className="admin-panel-content add-product-page">
+            <div className="add-product-loading">
+              <span className="add-product-loader" />
+              <p>Verifying administrator permissions...</p>
+            </div>
           </div>
         </main>
       </div>
     );
   }
 
-  // PERMISSION CHECK
   if (!canAddProduct) {
     return (
       <div className="admin-shell">
@@ -207,13 +200,16 @@ const AddProduct = () => {
         <main className="admin-main-panel">
           <AdminNavbar />
 
-          <div className="admin-panel-content">
-            <h2>Access Restricted</h2>
-
-            <p>
-              You do not have permission to add products.
-              Please contact your Super Admin.
-            </p>
+          <div className="admin-panel-content add-product-page">
+            <div className="add-product-restricted">
+              <span className="restricted-icon">!</span>
+              <p className="add-product-eyebrow">ACCESS CONTROL</p>
+              <h2>Access Restricted</h2>
+              <p>
+                You do not have permission to add products.
+                Please contact your Super Admin.
+              </p>
+            </div>
           </div>
         </main>
       </div>
@@ -227,11 +223,22 @@ const AddProduct = () => {
       <main className="admin-main-panel">
         <AdminNavbar />
 
-        <div className="admin-panel-content">
-          <div className="section-heading">
+        <div className="admin-panel-content add-product-page">
+          <div className="add-product-heading">
             <div>
-              <p className="eyebrow">Inventory</p>
-              <h2>Add new product</h2>
+              <p className="add-product-eyebrow">
+                SKINORA / INVENTORY MANAGEMENT
+              </p>
+
+              <h1>Add New Product</h1>
+
+              <p className="add-product-description">
+                Add a new skincare product to your store inventory.
+              </p>
+            </div>
+
+            <div className="add-product-heading-mark">
+              <span>+</span>
             </div>
           </div>
 
@@ -239,152 +246,205 @@ const AddProduct = () => {
             className="admin-product-form"
             onSubmit={handleSubmit}
           >
-            <div className="form-grid">
+            <div className="product-form-section">
+              <div className="product-section-heading">
+                <div className="product-section-number">01</div>
 
-              <label>
-                <span>Product Name</span>
+                <div>
+                  <h3>Product Information</h3>
+                  <p>Enter the basic details of your product.</p>
+                </div>
+              </div>
 
-                <input
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  required
-                  maxLength="160"
-                />
-              </label>
+              <div className="form-grid">
+                <label className="product-field">
+                  <span>Product Name <i>*</i></span>
+                  <input
+                    type="text"
+                    name="name"
+                    placeholder="e.g. Vitamin C Brightening Serum"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    required
+                    maxLength="160"
+                  />
+                </label>
 
-              <label>
-                <span>Product Price</span>
+                <label className="product-field">
+                  <span>Brand Name</span>
+                  <input
+                    type="text"
+                    name="brand"
+                    placeholder="Enter brand name"
+                    maxLength="120"
+                    value={formData.brand}
+                    onChange={handleInputChange}
+                  />
+                </label>
 
-                <input
-                  type="number"
-                  name="price"
-                  min="0"
-                  step="1"
-                  value={formData.price}
-                  onChange={handleInputChange}
-                  required
-                />
-              </label>
+                <label className="product-field">
+                  <span>Product Category <i>*</i></span>
+                  <select
+                    name="category"
+                    value={formData.category}
+                    onChange={handleInputChange}
+                  >
+                    {categoryOptions.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
-              <label>
-                <span>Discount Price (optional)</span>
+                <label className="product-field">
+                  <span>Product Status <i>*</i></span>
+                  <select
+                    name="status"
+                    value={formData.status}
+                    onChange={handleInputChange}
+                  >
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </label>
+              </div>
 
-                <input
-                  type="number"
-                  name="discountPrice"
-                  min="0"
-                  step="1"
-                  value={formData.discountPrice}
-                  onChange={handleInputChange}
-                />
-              </label>
-
-              <label>
-                <span>Brand</span>
-
-                <input
-                  type="text"
-                  name="brand"
-                  maxLength="120"
-                  value={formData.brand}
-                  onChange={handleInputChange}
-                />
-              </label>
-
-              <label>
-                <span>Product Category</span>
-
-                <select
-                  name="category"
-                  value={formData.category}
-                  onChange={handleInputChange}
-                >
-                  {categoryOptions.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label>
-                <span>Stock Quantity</span>
-
-                <input
-                  type="number"
-                  name="stock"
-                  min="0"
-                  step="1"
-                  value={formData.stock}
+              <label className="product-field product-description-field">
+                <span>Product Description <i>*</i></span>
+                <textarea
+                  name="description"
+                  rows="5"
+                  placeholder="Describe the product, its benefits and key features..."
+                  value={formData.description}
                   onChange={handleInputChange}
                   required
                 />
+                <small>Write a clear description for your customers.</small>
               </label>
-
-              <label>
-                <span>Product Status</span>
-
-                <select
-                  name="status"
-                  value={formData.status}
-                  onChange={handleInputChange}
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
-              </label>
-
             </div>
 
-            <label>
-              <span>Product Description</span>
+            <div className="product-form-divider" />
 
-              <textarea
-                name="description"
-                rows="5"
-                value={formData.description}
-                onChange={handleInputChange}
-                required
-              />
-            </label>
+            <div className="product-form-section">
+              <div className="product-section-heading">
+                <div className="product-section-number">02</div>
 
-            <label>
-              <span>Product Image Upload</span>
+                <div>
+                  <h3>Pricing & Inventory</h3>
+                  <p>Set the product price and available stock.</p>
+                </div>
+              </div>
 
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                onChange={handleImageChange}
-                required
-              />
-            </label>
+              <div className="form-grid">
+                <label className="product-field">
+                  <span>Regular Price (PKR) <i>*</i></span>
+                  <div className="product-input-prefix">
+                    <span>Rs.</span>
+                    <input
+                      type="number"
+                      name="price"
+                      min="0"
+                      step="1"
+                      placeholder="0"
+                      value={formData.price}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+                </label>
 
-            {previewUrl && (
-              <div className="image-preview-box">
-                <img
-                  src={previewUrl}
-                  alt="Product preview"
-                />
+                <label className="product-field">
+                  <span>Discount Price (PKR)</span>
+                  <div className="product-input-prefix">
+                    <span>Rs.</span>
+                    <input
+                      type="number"
+                      name="discountPrice"
+                      min="0"
+                      step="1"
+                      placeholder="Optional"
+                      value={formData.discountPrice}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                </label>
+
+                <label className="product-field">
+                  <span>Stock Quantity <i>*</i></span>
+                  <input
+                    type="number"
+                    name="stock"
+                    min="0"
+                    step="1"
+                    placeholder="Enter available quantity"
+                    value={formData.stock}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </label>
+              </div>
+            </div>
+
+            <div className="product-form-divider" />
+
+            <div className="product-form-section">
+              <div className="product-section-heading">
+                <div className="product-section-number">03</div>
+
+                <div>
+                  <h3>Product Photography</h3>
+                  <p>Upload a clear image of your product.</p>
+                </div>
+              </div>
+
+              <div className="product-upload-layout">
+                <label className="product-upload-box">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={handleImageChange}
+                    required
+                  />
+
+                  <span className="product-upload-icon">↑</span>
+                  <strong>Choose product image</strong>
+                  <span>Click here to browse your files</span>
+                  <small>Supported formats: JPG, PNG, WEBP</small>
+                </label>
+
+                {previewUrl && (
+                  <div className="product-image-preview">
+                    <p>IMAGE PREVIEW</p>
+                    <img
+                      src={previewUrl}
+                      alt="Product preview"
+                    />
+                    <span>{imageFile?.name}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {error && (
+              <div className="add-product-error" role="alert">
+                <span>!</span>
+                {error}
               </div>
             )}
 
-            {error && (
-              <p role="alert">{error}</p>
-            )}
-
             <div className="admin-form-actions">
+              <p>Fields marked with * are required.</p>
+
               <Button
                 type="submit"
                 variant="primary"
                 disabled={saving}
               >
-                {saving ? 'Saving…' : 'Save Product'}
+                {saving ? 'Saving Product...' : 'Save Product'}
               </Button>
             </div>
-
           </form>
         </div>
       </main>

@@ -2,7 +2,6 @@
 import {
   initializeApp,
   getApps,
-  getApp,
 } from 'firebase/app';
 
 import { getAuth } from 'firebase/auth';
@@ -31,7 +30,7 @@ export const db = getFirestore(app);
 export const storage = getStorage(app);
 
 // =====================================
-// SUPER ADMIN — SEPARATE AUTH SESSION
+// SUPER ADMIN — SEPARATE AUTH & DATABASE
 // =====================================
 
 const superAdminApp = getApps().find(
@@ -39,9 +38,10 @@ const superAdminApp = getApps().find(
 ) || initializeApp(firebaseConfig, 'SuperAdminApp');
 
 export const superAdminAuth = getAuth(superAdminApp);
+export const superAdminDb = getFirestore(superAdminApp);
 
 // =====================================
-// SUB ADMIN — SEPARATE AUTH SESSION
+// SUB ADMIN — SEPARATE AUTH & DATABASE
 // =====================================
 
 const secondaryApp = getApps().find(

@@ -1,71 +1,464 @@
+
+/* ==========================================
+   ADMIN HEADER - BASE
+========================================== */
+
 .admin-header {
-  background: rgba(255, 255, 255, 0.72);
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.96);
   border-bottom: 1px solid rgba(109, 85, 52, 0.18);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(12px);
 }
 
 .admin-header-shell {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 1.5rem;
   min-height: 88px;
-  padding: 0 1.5rem;
+  padding: 0 2rem;
+  box-sizing: border-box;
+}
+
+.admin-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  min-width: 0;
+}
+
+.admin-header-heading {
+  min-width: 0;
 }
 
 .admin-header-kicker {
   margin: 0;
-  color: var(--accent-gold);
+  color: #a27a5e;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
-  font-size: 0.68rem;
+  letter-spacing: 2px;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .admin-header-shell h2 {
-  margin: 0.2rem 0 0;
-  font-size: clamp(1.5rem, 2vw, 2rem);
+  margin: 5px 0 0;
+  color: #382d29;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(24px, 2.5vw, 34px);
+  font-weight: 500;
+  letter-spacing: -1px;
 }
+
+/* ==========================================
+   HEADER BUTTONS
+========================================== */
 
 .admin-header-actions {
   display: flex;
   align-items: center;
-  gap: 0.9rem;
+  gap: 12px;
 }
 
 .admin-link-button {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 42px;
-  padding: 0 1rem;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 17px;
+  overflow: hidden;
   border-radius: 999px;
-  border: 1px solid rgba(123, 98, 20, 0.2);
-  background: white;
-  color: var(--text-primary);
+  border: 1px solid #e7dcd1;
+  background: #fff;
+  color: #493a34;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
   text-decoration: none;
-  transition: transform 0.2s ease;
+  transition: all 0.3s ease;
 }
 
 .admin-link-button:hover {
   transform: translateY(-2px);
 }
 
-.admin-link-button.danger {
-  background: rgba(128, 43, 43, 0.06);
-  border-color: rgba(128, 43, 43, 0.2);
-  color: #7d2d2d;
+.admin-link-button:focus-visible {
+  outline: 3px solid rgba(174, 135, 94, 0.3);
+  outline-offset: 3px;
 }
 
+.header-button-arrow,
+.header-logout-icon {
+  font-size: 15px;
+  transition: transform 0.3s ease;
+}
+
+.admin-link-button:hover .header-button-arrow,
+.admin-link-button:hover .header-logout-icon {
+  transform: translate(2px, -2px);
+}
+
+.admin-link-button.danger {
+  background: #faf3ef;
+  border-color: #e5c9bc;
+  color: #925044;
+}
+
+.admin-link-button.danger:hover {
+  background: #754137;
+  border-color: #754137;
+  color: #fff7ed;
+}
+
+/* ==========================================
+   SUPER ADMIN - PREMIUM HEADER
+========================================== */
+
+.admin-header.super-admin-header {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      ellipse at 88% 0%,
+      rgba(190, 151, 101, 0.16),
+      transparent 38%
+    ),
+    linear-gradient(
+      110deg,
+      #211914 0%,
+      #30231d 48%,
+      #3d2c22 100%
+    );
+  border-bottom: 1px solid rgba(205, 170, 123, 0.35);
+  box-shadow: 0 8px 28px rgba(35, 23, 17, 0.13);
+}
+
+/* Champagne animated top line */
+
+.super-admin-header::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    #9b744d,
+    #f1d7ad,
+    #bd9564,
+    #fff0d5,
+    #9b744d
+  );
+  background-size: 200% 100%;
+  animation: superAdminGoldFlow 7s linear infinite;
+}
+
+/* Soft background glow */
+
+.super-admin-header::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  width: 250px;
+  height: 250px;
+  top: -160px;
+  right: 18%;
+  border-radius: 50%;
+  background: rgba(218, 176, 119, 0.12);
+  filter: blur(45px);
+  pointer-events: none;
+}
+
+@keyframes superAdminGoldFlow {
+  from {
+    background-position: 0% 50%;
+  }
+
+  to {
+    background-position: 200% 50%;
+  }
+}
+
+.super-admin-header .admin-header-shell {
+  min-height: 112px;
+  padding: 0 2.6rem;
+}
+
+.super-admin-brand-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+  border: 1px solid rgba(224, 188, 139, 0.7);
+  border-radius: 15px;
+  background: linear-gradient(
+    145deg,
+    #d9bd92,
+    #9d744b
+  );
+  color: #281b14;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 27px;
+  font-weight: 700;
+  box-shadow:
+    0 5px 18px rgba(0, 0, 0, 0.22),
+    inset 0 1px 1px rgba(255, 255, 255, 0.55);
+}
+
+.super-admin-header .admin-header-kicker {
+  color: #d5b487;
+  letter-spacing: 3px;
+  font-size: 10px;
+}
+
+.super-admin-header .admin-header-shell h2 {
+  margin-top: 6px;
+  color: #fff8ed;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(26px, 2.7vw, 36px);
+  font-weight: 500;
+  letter-spacing: -1.2px;
+  text-shadow: 0 3px 15px rgba(0, 0, 0, 0.2);
+}
+
+.super-admin-subtitle {
+  margin: 5px 0 0;
+  color: #c3ad98;
+  font-size: 11px;
+  letter-spacing: 0.7px;
+}
+
+/* Super Admin buttons */
+
+.super-admin-header .admin-link-button {
+  min-height: 45px;
+  padding: 0 19px;
+  border: 1px solid rgba(221, 190, 151, 0.42);
+  background: rgba(255, 255, 255, 0.07);
+  color: #f7e9d5;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(8px);
+}
+
+.super-admin-header .admin-link-button:hover {
+  transform: translateY(-3px);
+  border-color: #dfbd8e;
+  background: #d5b487;
+  color: #2b1d15;
+  box-shadow:
+    0 8px 22px rgba(0, 0, 0, 0.2),
+    0 0 16px rgba(213, 180, 135, 0.18);
+}
+
+.super-admin-header .admin-link-button.danger {
+  border-color: rgba(211, 143, 126, 0.35);
+  background: rgba(153, 76, 62, 0.15);
+  color: #f0c5b8;
+}
+
+.super-admin-header .admin-link-button.danger:hover {
+  border-color: #bd7868;
+  background: #8d4d40;
+  color: #fff8f1;
+}
+
+/* Button shine */
+
+.super-admin-header .admin-link-button::after,
+.order-manager-header .admin-link-button::after {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -100%;
+  width: 45%;
+  height: 200%;
+  transform: rotate(25deg);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.45),
+    transparent
+  );
+  transition: left 0.65s ease;
+  pointer-events: none;
+}
+
+.super-admin-header .admin-link-button:hover::after,
+.order-manager-header .admin-link-button:hover::after {
+  left: 150%;
+}
+
+/* ==========================================
+   ORDER MANAGER LUXURY HEADER
+========================================== */
+
+.admin-header.order-manager-header {
+  position: relative;
+  background: linear-gradient(
+    110deg,
+    #fffdfb 0%,
+    #f9f4ef 55%,
+    #f2e9df 100%
+  );
+  border-bottom: 1px solid rgba(173, 134, 104, 0.25);
+  box-shadow: 0 4px 18px rgba(54, 36, 27, 0.045);
+}
+
+.order-manager-header::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    #76513d,
+    #d5b58c,
+    #f1dfc5,
+    #b28b64,
+    #76513d
+  );
+  background-size: 200% 100%;
+  animation: headerGoldFlow 7s linear infinite;
+}
+
+@keyframes headerGoldFlow {
+  from {
+    background-position: 0% 50%;
+  }
+
+  to {
+    background-position: 200% 50%;
+  }
+}
+
+.order-manager-header .admin-header-shell {
+  min-height: 92px;
+  padding: 0 2.4rem;
+}
+
+.order-manager-header .admin-header-kicker {
+  color: #a47760;
+  letter-spacing: 2.1px;
+}
+
+.order-manager-header .admin-header-shell h2 {
+  color: #342722;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(25px, 2.5vw, 34px);
+  font-weight: 500;
+  letter-spacing: -1.1px;
+  text-shadow: 0 2px 12px rgba(80, 51, 36, 0.05);
+}
+
+.order-manager-header .admin-link-button {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid #e7dcd1;
+  background: rgba(255, 255, 255, 0.85);
+  color: #49382f;
+  box-shadow: 0 2px 7px rgba(52, 34, 24, 0.025);
+}
+
+.order-manager-header .admin-link-button:hover {
+  background: #392820;
+  border-color: #c9a77e;
+  color: #f8e6ca;
+  box-shadow:
+    0 6px 18px rgba(57, 40, 32, 0.15),
+    0 0 15px rgba(194, 157, 111, 0.15);
+}
+
+.order-manager-header .admin-link-button.danger {
+  background: #faf3ef;
+  border-color: #e5c9bc;
+  color: #925044;
+}
+
+.order-manager-header .admin-link-button.danger:hover {
+  background: #754137;
+  border-color: #754137;
+  color: #fff7ed;
+}
+
+/* ==========================================
+   ERROR MESSAGE
+========================================== */
+
+.admin-header-error {
+  margin: 0;
+  padding: 10px 2rem;
+  color: #a44d46;
+  background: #fff0ee;
+  border-top: 1px solid #f2d5d1;
+  font-size: 13px;
+}
+
+/* ==========================================
+   RESPONSIVE
+========================================== */
+
 @media (max-width: 640px) {
-  .admin-header-shell {
+  .admin-header-shell,
+  .order-manager-header .admin-header-shell,
+  .super-admin-header .admin-header-shell {
     flex-direction: column;
     align-items: flex-start;
-    padding: 1rem;
+    gap: 15px;
+    padding: 18px 16px;
   }
 
   .admin-header-actions {
     width: 100%;
-    justify-content: space-between;
+    justify-content: flex-start;
+    gap: 10px;
+  }
+
+  .admin-link-button {
+    min-height: 40px;
+    padding: 0 14px;
+  }
+
+  .order-manager-header .admin-header-shell h2,
+  .super-admin-header .admin-header-shell h2 {
+    font-size: 25px;
+  }
+
+  .super-admin-brand-mark {
+    flex-basis: 42px;
+    width: 42px;
+    height: 42px;
+    font-size: 23px;
+  }
+
+  .admin-header-error {
+    padding: 10px 16px;
+  }
+}
+
+/* ==========================================
+   REDUCED MOTION
+========================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .super-admin-header::before,
+  .order-manager-header::before {
+    animation: none;
+  }
+
+  .admin-link-button,
+  .admin-link-button::after {
+    transition: none;
   }
 }

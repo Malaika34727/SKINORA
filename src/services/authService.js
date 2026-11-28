@@ -241,12 +241,12 @@ export const getAdminStatus = async (
 
     // ======================================
     // SUPER ADMIN VERIFICATION
-    // Always use Main Firestore
+    // Use the passed Firestore instance
     // ======================================
 
     if (user.uid === SUPER_ADMIN_UID) {
       const adminRef = doc(
-        db,
+        adminDatabase,
         'ADMIN',
         SUPER_ADMIN_UID
       );

@@ -14,12 +14,12 @@ import './AdminNavbar.css';
 
 const AdminNavbar = () => {
   const [error, setError] = useState('');
-
   const navigate = useNavigate();
 
   const {
     role,
     selectedPanel,
+    permissions = {},
     setSelectedPanel,
   } = useAuth();
 
@@ -27,25 +27,32 @@ const AdminNavbar = () => {
     role === 'admin' &&
     selectedPanel === 'superAdmin';
 
+  const isOrderManager =
+    !isSuperAdmin &&
+    (
+      selectedPanel === 'orderManager' ||
+      role === 'orderManager' ||
+      (
+        permissions.viewOrders === true &&
+        permissions.viewProducts !== true
+      )
+    );
+
   const panelTitle = isSuperAdmin
-    ? 'Dashboard'
-    : selectedPanel === 'productManager'
-      ? 'Product Manager'
-      : selectedPanel === 'orderManager'
-        ? 'Order Manager'
+    ? 'SUPER ADMINISTRATION'
+    : isOrderManager
+      ? 'Order Manager'
+      : selectedPanel === 'productManager'
+        ? 'Product Manager'
         : 'Sub Admin Panel';
 
   const welcomeTitle = isSuperAdmin
     ? 'Welcome back, Admin'
-    : selectedPanel === 'productManager'
-      ? 'Welcome back, Product Manager'
-      : selectedPanel === 'orderManager'
-        ? 'Welcome back, Order Manager'
+    : isOrderManager
+      ? 'Welcome back, Order Manager'
+      : selectedPanel === 'productManager'
+        ? 'Welcome back, Product Manager'
         : 'Welcome back, Sub Admin';
-
-  // ==========================================
-  // LOGOUT
-  // ==========================================
 
   const handleLogout = async () => {
     setError('');
@@ -56,10 +63,7 @@ const AdminNavbar = () => {
         : secondaryAuth;
 
     try {
-      // Only sign out the currently selected admin session.
       await signOut(selectedAuth);
-
-      // Clear this tab's selected admin panel.
       setSelectedPanel(null);
 
       navigate('/skinora-admin', {
@@ -74,23 +78,46 @@ const AdminNavbar = () => {
     }
   };
 
+  const headerClass = [
+  'admin-header',
+  isSuperAdmin || !isSuperAdmin ? 'super-admin-header' : '',
+]
+  .filter(Boolean)
+  .join(' ');
   return (
-    <header className="admin-header">
+    <header className={headerClass}>
       <div className="admin-header-shell">
-        <div>
-          <p className="admin-header-kicker">
-            {panelTitle}
-          </p>
 
-          <h2>{welcomeTitle}</h2>
+        <div className="admin-header-brand">
+          {isSuperAdmin && (
+            <span className="super-admin-brand-mark">
+              S
+            </span>
+          )}
+
+          <div className="admin-header-heading">
+            <p className="admin-header-kicker">
+              {panelTitle}
+            </p>
+
+            <h2>{welcomeTitle}</h2>
+
+            {isSuperAdmin && (
+              <p className="super-admin-subtitle">
+                Your workspace. Your control.
+              </p>
+            )}
+          </div>
         </div>
 
         <div className="admin-header-actions">
+
           <Link
             to="/"
             className="admin-link-button"
           >
-            View Store
+            <span>View Store</span>
+            <span className="header-button-arrow">↗</span>
           </Link>
 
           <button
@@ -98,13 +125,18 @@ const AdminNavbar = () => {
             className="admin-link-button danger"
             onClick={handleLogout}
           >
-            Logout
+            <span>Logout</span>
+            <span className="header-logout-icon">↗</span>
           </button>
+
         </div>
       </div>
 
       {error && (
-        <p role="alert">
+        <p
+          className="admin-header-error"
+          role="alert"
+        >
           {error}
         </p>
       )}

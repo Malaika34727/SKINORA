@@ -21,8 +21,8 @@ import { logoImage } from '../data/products';
 
 import {
   superAdminAuth,
+  superAdminDb,
   secondaryAuth,
-  db,
   secondaryDb,
 } from '../firebase';
 
@@ -118,7 +118,7 @@ const AdminLogin = ({ initialRole = 'admin' }) => {
     }
 
     const adminRef = doc(
-      db,
+      superAdminDb,
       'ADMIN',
       SUPER_ADMIN_UID
     );
